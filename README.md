@@ -285,6 +285,25 @@ Pruned 1 card(s) and 1 log entries.
 Pass every deck you still use: a card from a deck you leave out counts as
 orphaned. A deck that cannot be read is an error and nothing is pruned.
 
+### Rewording a question
+
+To keep a card's history when you reword its question, move it before
+pruning. `rename-question` takes the old question (or its id, as printed by
+`orphans`) and the new one, and moves the card's state and log entries:
+
+```text
+$ flashdeck orphans deck.md
+a67d3f273c88  review, interval 1d, due 2026-11-11
+1 orphaned card(s); run again with --prune to remove them.
+$ flashdeck rename-question "Capital of France?" "Which city is the capital of France?"
+Moved a67d3f273c88 -> ae086c734d4e (1 log entries).
+$ flashdeck orphans deck.md
+No orphaned state entries.
+```
+
+It refuses to run if the old question has no history, or if the new one
+already has some (nothing is overwritten).
+
 ## Scheduling (SM-2)
 
 Each card has an ease factor (starts at 2.5, never below 1.3), an interval in

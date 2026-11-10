@@ -127,6 +127,25 @@ class Store:
         self.log = [e for e in self.log if e.get("id") not in gone]
         return len(gone)
 
+    def rename(self, old_id: str, new_id: str) -> int:
+        """Move a card's state and log entries from ``old_id`` to ``new_id``.
+
+        Returns the number of log entries moved. Raises ``KeyError`` if
+        ``old_id`` has no state and ``ValueError`` if ``new_id`` already has
+        some (or is the same id), so no history is ever overwritten.
+        """
+        if old_id not in self.cards:
+            raise KeyError(old_id)
+        if new_id == old_id or new_id in self.cards:
+            raise ValueError(new_id)
+        self.cards[new_id] = self.cards.pop(old_id)
+        moved = 0
+        for entry in self.log:
+            if entry.get("id") == old_id:
+                entry["id"] = new_id
+                moved += 1
+        return moved
+
     def save(self) -> None:
         data = {
             "version": FORMAT_VERSION,

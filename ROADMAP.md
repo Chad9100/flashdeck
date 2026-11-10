@@ -30,7 +30,7 @@ Estimates are rough working hours for one person.
 
 - [x] `flashdeck orphans`: list (and with `--prune`, remove) state entries whose question no longer
       appears in any given deck
-- [ ] `flashdeck rename-question`: carry a card's history over when its question is reworded
+- [x] `flashdeck rename-question`: carry a card's history over when its question is reworded
 - [ ] Compact the answer log (keep per-day summaries for entries older than a year)
 
 ## v0.5: better scheduling options (about 4 h)

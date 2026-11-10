@@ -69,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
     o.add_argument("--prune", action="store_true",
                    help="remove the orphaned entries and their log history")
 
+    rn = sub.add_parser("rename-question", parents=[common],
+                        help="carry a card's review history over to a reworded question")
+    rn.add_argument("old", metavar="OLD", help="the old question, or its id as shown by 'orphans'")
+    rn.add_argument("new", metavar="NEW", help="the new question")
+
     a = sub.add_parser("add", help="append a card to a deck file")
     a.add_argument("deck", metavar="DECK", help="deck file (created if missing)")
     a.add_argument("front", metavar="QUESTION")
@@ -197,6 +202,26 @@ def cmd_orphans(args, out, err) -> int:
     return 0
 
 
+def cmd_rename_question(args, out, err) -> int:
+    store = Store(_state_path(args))
+    old_id = args.old.strip() if args.old.strip() in store.cards else card_id(args.old)
+    new_id = card_id(args.new)
+    if old_id not in store.cards:
+        err.write("flashdeck: no review history for that question\n")
+        return 1
+    if new_id == old_id:
+        err.write("flashdeck: the new question has the same id as the old one; nothing to do\n")
+        return 1
+    if new_id in store.cards:
+        err.write("flashdeck: the new question already has review history; "
+                  "refusing to overwrite it\n")
+        return 1
+    moved = store.rename(old_id, new_id)
+    store.save()
+    out.write(f"Moved {old_id} -> {new_id} ({moved} log entries).\n")
+    return 0
+
+
 def cmd_add(args, out, err) -> int:
     path = Path(args.deck)
     if args.cloze:
@@ -320,6 +345,8 @@ def main(
             return cmd_stats(args, out, err, clock)
         if args.command == "orphans":
             return cmd_orphans(args, out, err)
+        if args.command == "rename-question":
+            return cmd_rename_question(args, out, err)
         if args.command == "add":
             return cmd_add(args, out, err)
         if args.command == "import":
