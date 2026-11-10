@@ -16,7 +16,7 @@ Estimates are rough working hours for one person.
 
 - [x] `u` undoes the last answer in a session (restore the previous card state, drop the log entry)
 - [x] `s` skips a card for this session without grading it
-- [ ] `e` opens the card's deck file in `$EDITOR` at the card's line, then reloads the deck
+- [x] `e` opens the card's deck file in `$EDITOR` at the card's line, then reloads the deck
 
 ## v0.3: reverse and cloze cards (about 4 h)
 

@@ -11,7 +11,8 @@ from typing import Callable, Optional, Sequence, TextIO
 
 from . import __version__
 from .deck import Card, DeckError, card_id, filter_tags, load_decks
-from .session import LineReader, build_queue, run_session, summary
+from .editor import EditorError, open_in_editor
+from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
 from .stats import compute_stats, due_counts, format_due, format_stats
 from .store import Store, StoreError, default_state_path
 from .writer import append_cards, clean_tags, existing_ids, format_card, import_rows, read_csv_rows
@@ -89,15 +90,48 @@ def _state_path(args) -> Path:
     return Path(args.state) if args.state else default_state_path()
 
 
-def _load(args, err: TextIO) -> list[Card]:
+EditFile = Callable[[str, int], None]
+
+
+def _load_all(args, err: TextIO) -> list[Card]:
     cards, warnings = load_decks(args.decks)
     for w in warnings:
         err.write(f"flashdeck: warning: {w}\n")
-    return filter_tags(cards, args.tag)
+    return cards
 
 
-def cmd_review(args, out, err, clock, read) -> int:
-    cards = _load(args, err)
+def _load(args, err: TextIO) -> list[Card]:
+    return filter_tags(_load_all(args, err), args.tag)
+
+
+def _edit_callback(args, err: TextIO, edit_file: EditFile, all_cards: list[Card]):
+    """``e`` during review: open the card's deck at its line, then reload the decks."""
+    known = {"ids": {c.id for c in all_cards}}
+
+    def edit(card: Card) -> Optional[EditResult]:
+        if not card.path:
+            err.write("  This card has no deck file to edit.\n")
+            return None
+        try:
+            edit_file(card.path, card.line)
+        except EditorError as exc:
+            err.write(f"  flashdeck: {exc}; card unchanged\n")
+            return None
+        try:
+            reloaded = _load_all(args, err)
+        except DeckError as exc:
+            err.write(f"  flashdeck: {exc}; card unchanged\n")
+            return None
+        found = match_edited(card, known["ids"], reloaded)
+        known["ids"] = {c.id for c in reloaded}
+        return EditResult(found, filter_tags(reloaded, args.tag))
+
+    return edit
+
+
+def cmd_review(args, out, err, clock, read, edit_file: EditFile = open_in_editor) -> int:
+    all_cards = _load_all(args, err)
+    cards = filter_tags(all_cards, args.tag)
     store = Store(_state_path(args))
     today = clock().date()
     queue = build_queue(cards, store, today, args.new, args.limit)
@@ -112,7 +146,8 @@ def cmd_review(args, out, err, clock, read) -> int:
         return 0
     n_new = sum(1 for c in queue if store.state_of(c.id) == "new")
     out.write(f"{len(queue)} card(s): {len(queue) - n_new} due, {n_new} new.\n")
-    result = run_session(queue, store, read, out, clock)
+    edit = _edit_callback(args, err, edit_file, all_cards)
+    result = run_session(queue, store, read, out, clock, edit=edit)
     out.write("\n" + summary(result) + "\n")
     return 0
 
@@ -205,6 +240,7 @@ def main(
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
     clock: Optional[Callable[[], datetime]] = None,
+    edit_file: Optional[EditFile] = None,
 ) -> int:
     out = stdout or sys.stdout
     err = stderr or sys.stderr
@@ -224,7 +260,7 @@ def main(
     args = build_parser().parse_args(argv)
     try:
         if args.command == "review":
-            return cmd_review(args, out, err, clock, LineReader(inp))
+            return cmd_review(args, out, err, clock, LineReader(inp), edit_file or open_in_editor)
         if args.command == "due":
             return cmd_due(args, out, err, clock)
         if args.command == "stats":

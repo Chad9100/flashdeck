@@ -110,6 +110,19 @@ schedule (a due card stays due, a new card stays new) and shows up again next
 session. Skips are not answers, so `u` after a skip goes back to the last card
 you actually graded. The summary line notes how many cards were skipped.
 
+Spotted a typo? Type `e` at either prompt to open the card's deck file in your
+editor at the card's line (`$VISUAL`, then `$EDITOR`, else Notepad on Windows
+and `vi` elsewhere). When the editor exits the decks are reloaded and the card
+is shown again from its question, ungraded. Fixing the answer or tags keeps the
+card's history; rewording the question makes it a new card (it is still asked
+in this session), and a card you deleted is dropped. The rest of the session
+picks up your changes too. The line is passed as `+LINE` to vi, Vim, Neovim,
+nano, Emacs, micro, gedit and similar editors, and as `FILE:LINE` to VS Code,
+Sublime Text, Helix and Zed; the GUI ones among these are also given `--wait`
+so that flashdeck waits until you close the file. Other editors just open the
+file. If the editor fails to
+start or exits with an error, the card is shown again unchanged.
+
 Answers can be piped in, which is how this real session was captured (the
 typed answers are not echoed when piped, so prompts and results share a line):
 
@@ -119,27 +132,27 @@ $ printf '\n3\n\n1\n\n4\n\n3\n' | flashdeck review examples/spanish.md --new 3
 
 [3 left] spanish (new)  #spanish
   hola
-  -- Enter to show the answer, s to skip, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, q to quit --
   hello
-  1 again   2 hard   3 good   4 easy   (s skip, q quit) >   -> next in 1 day (2026-11-11)
+  1 again   2 hard   3 good   4 easy   (s skip, e edit, q quit) >   -> next in 1 day (2026-11-11)
 
 [2 left] spanish (new)  #spanish #greeting
   adiós
-  -- Enter to show the answer, s to skip, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
   goodbye
-  1 again   2 hard   3 good   4 easy   (s skip, u undo, q quit) >   -> again later in this session
+  1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> again later in this session
 
 [2 left] spanish (new)  #spanish
   gracias
-  -- Enter to show the answer, s to skip, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
   thank you
-  1 again   2 hard   3 good   4 easy   (s skip, u undo, q quit) >   -> next in 4 days (2026-11-14)
+  1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> next in 4 days (2026-11-14)
 
 [1 left] spanish (learning)  #spanish #greeting
   adiós
-  -- Enter to show the answer, s to skip, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
   goodbye
-  1 again   2 hard   3 good   4 easy   (s skip, u undo, q quit) >   -> next in 1 day (2026-11-11)
+  1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> next in 1 day (2026-11-11)
 
 Reviewed 3 cards (4 answers: again 1, hard 0, good 2, easy 1).
 ```

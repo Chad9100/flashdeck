@@ -65,6 +65,7 @@ class SessionResult:
     quit_early: bool = False
     undone: int = 0
     skipped: int = 0
+    edited: int = 0
 
     @property
     def answers(self) -> int:
@@ -81,6 +82,37 @@ class _Answer:
     requeued: bool
 
 
+@dataclass
+class EditResult:
+    """What an edit callback found after the editor closed.
+
+    ``cards`` is the freshly loaded deck (after tag filtering); ``card`` is
+    the edited card as it now reads, or ``None`` if it is gone.
+    """
+
+    card: Optional[Card]
+    cards: list[Card]
+
+
+EditCallback = Callable[[Card], Optional[EditResult]]
+
+
+def match_edited(card: Card, before_ids: set[str], after: list[Card]) -> Optional[Card]:
+    """Find ``card`` again after its deck was edited.
+
+    Same question: found by id. Reworded question: a card that now starts on
+    the same line of the same file and whose id did not exist before the
+    edit. Otherwise the card was deleted (or moved and reworded at once).
+    """
+    for c in after:
+        if c.id == card.id:
+            return c
+    for c in after:
+        if c.path == card.path and c.line == card.line and c.id not in before_ids:
+            return c
+    return None
+
+
 def _indent(text: str) -> str:
     return "\n".join("  " + ln if ln else "" for ln in text.split("\n"))
 
@@ -95,6 +127,7 @@ def run_session(
     read: Callable[[], Optional[str]],
     out: TextIO,
     clock: Clock,
+    edit: Optional[EditCallback] = None,
 ) -> SessionResult:
     """Show each card, wait for Enter, reveal, ask for a grade, reschedule.
 
@@ -105,6 +138,12 @@ def run_session(
     and the card is asked again. Repeated ``u`` keeps going back. ``s``
     (at either prompt) skips the card for the rest of the session without
     grading it; its state and the answer log are left untouched.
+
+    With an ``edit`` callback, ``e`` (at either prompt) hands the card to
+    it (normally: open the deck in an editor and reload it). The rest of
+    the queue is refreshed from the reloaded deck, and the edited card is
+    shown again from its question, ungraded. If the callback returns
+    ``None`` (the editor failed) the card is shown again unchanged.
     """
     result = SessionResult()
     pending = deque(queue)
@@ -136,12 +175,39 @@ def run_session(
         result.skipped += 1
         out.write(f"  -> skipped for this session: {current.front.splitlines()[0]}\n")
 
+    def do_edit(current: Card) -> None:
+        if edit is None:
+            pending.appendleft(current)
+            out.write("  Editing is not available here.\n")
+            return
+        found = edit(current)
+        if found is None:
+            pending.appendleft(current)
+            return
+        result.edited += 1
+        by_id = {c.id: c for c in found.cards}
+        refreshed = [by_id[c.id] for c in pending if c.id in by_id]
+        pending.clear()
+        pending.extend(refreshed)
+        for answer in history:
+            answer.card = by_id.get(answer.card.id, answer.card)
+        new = found.card
+        if new is None:
+            out.write(f"  -> no longer in the deck, dropped: {current.front.splitlines()[0]}\n")
+            return
+        if new.id != current.id:
+            out.write("  -> question reworded: asked as a new card\n")
+        else:
+            out.write("  -> reloaded after editing\n")
+        if not any(c.id == new.id for c in pending):
+            pending.appendleft(new)
+
     while pending:
         card = pending.popleft()
         before = store.get(card.id)
         label = "new" if before.state == NEW else before.state
         tags = "  " + " ".join("#" + t for t in card.tags) if card.tags else ""
-        hint = "s to skip, u to undo, q to quit" if history else "s to skip, q to quit"
+        hint = "s to skip, " + ("e to edit, " if edit else "") + ("u to undo, " if history else "") + "q to quit"
         out.write(f"\n[{len(pending) + 1} left] {card.deck} ({label}){tags}\n")
         out.write(_indent(card.front) + "\n")
         out.write(f"  -- Enter to show the answer, {hint} -- ")
@@ -159,11 +225,15 @@ def run_session(
             out.write("\n")
             skip(card)
             continue
+        if _is(line, "e"):
+            out.write("\n")
+            do_edit(card)
+            continue
         out.write("\n" + _indent(card.back) + "\n")
         grade = None
         handled = False
         while grade is None:
-            extra = "s skip, u undo, q quit" if history else "s skip, q quit"
+            extra = "s skip, " + ("e edit, " if edit else "") + ("u undo, " if history else "") + "q quit"
             out.write(f"  1 again   2 hard   3 good   4 easy   ({extra}) > ")
             out.flush()
             line = read()
@@ -182,6 +252,11 @@ def run_session(
             if _is(line, "s"):
                 out.write("\n")
                 skip(card)
+                handled = True
+                break
+            if _is(line, "e"):
+                out.write("\n")
+                do_edit(card)
                 handled = True
                 break
             grade = parse_grade(line)
@@ -211,9 +286,12 @@ def run_session(
 
 def summary(result: SessionResult) -> str:
     if result.answers == 0:
+        text = "No cards reviewed."
         if result.skipped:
-            return f"No cards reviewed. Skipped {result.skipped}."
-        return "No cards reviewed."
+            text += f" Skipped {result.skipped}."
+        if result.edited:
+            text += f" Edited {result.edited}."
+        return text
     c = result.counts
     parts = ", ".join(f"{g} {c[g]}" for g in GRADES)
     n = len(result.cards)
@@ -222,6 +300,8 @@ def summary(result: SessionResult) -> str:
         text += f" Undid {result.undone}."
     if result.skipped:
         text += f" Skipped {result.skipped}."
+    if result.edited:
+        text += f" Edited {result.edited}."
     if result.quit_early:
         text += " Stopped early; progress saved."
     return text
