@@ -267,6 +267,24 @@ answer. `-t TAG` tags every imported card. `-` reads the CSV from standard
 input. Questions already in the deck and rows missing a side are skipped and
 counted.
 
+### Orphaned state
+
+Review history is keyed by the hash of a card's question, so deleting or
+rewording a card leaves its state entry behind. List such entries with
+`orphans`, and remove them (and their log history) with `--prune`:
+
+```text
+$ flashdeck orphans examples/spanish.md
+99800b85d338  review, interval 1d, due 2026-11-11
+1 orphaned card(s); run again with --prune to remove them.
+$ flashdeck orphans examples/spanish.md --prune
+99800b85d338  review, interval 1d, due 2026-11-11
+Pruned 1 card(s) and 1 log entries.
+```
+
+Pass every deck you still use: a card from a deck you leave out counts as
+orphaned. A deck that cannot be read is an error and nothing is pruned.
+
 ## Scheduling (SM-2)
 
 Each card has an ease factor (starts at 2.5, never below 1.3), an interval in

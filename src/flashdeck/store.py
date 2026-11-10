@@ -114,6 +114,19 @@ class Store:
                 del self.log[i]
                 break
 
+    def orphans(self, live_ids) -> list[str]:
+        """Sorted ids with a state entry that is not in ``live_ids``."""
+        live = set(live_ids)
+        return sorted(k for k in self.cards if k not in live)
+
+    def prune(self, ids) -> int:
+        """Remove state entries and their log entries for ``ids``; return how many cards went."""
+        gone = {i for i in ids if i in self.cards}
+        for i in gone:
+            del self.cards[i]
+        self.log = [e for e in self.log if e.get("id") not in gone]
+        return len(gone)
+
     def save(self) -> None:
         data = {
             "version": FORMAT_VERSION,

@@ -63,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("decks", nargs="+", metavar="DECK")
     s.add_argument("--days", type=_positive, default=7, metavar="N", help="forecast length (default 7)")
 
+    o = sub.add_parser("orphans", parents=[common],
+                       help="list (or --prune) state entries whose card is in no given deck")
+    o.add_argument("decks", nargs="+", metavar="DECK", help="every deck you still use")
+    o.add_argument("--prune", action="store_true",
+                   help="remove the orphaned entries and their log history")
+
     a = sub.add_parser("add", help="append a card to a deck file")
     a.add_argument("deck", metavar="DECK", help="deck file (created if missing)")
     a.add_argument("front", metavar="QUESTION")
@@ -168,6 +174,26 @@ def cmd_stats(args, out, err, clock) -> int:
     cards = _load(args, err)
     store = Store(_state_path(args))
     out.write(format_stats(compute_stats(cards, store, clock().date(), days=args.days)) + "\n")
+    return 0
+
+
+def cmd_orphans(args, out, err) -> int:
+    cards = _load_all(args, err)
+    store = Store(_state_path(args))
+    orphans = store.orphans(c.id for c in cards)
+    if not orphans:
+        out.write("No orphaned state entries.\n")
+        return 0
+    for cid in orphans:
+        st = store.cards[cid]
+        out.write(f"{cid}  {st.state}, interval {st.interval}d, due {st.due or '-'}\n")
+    if args.prune:
+        logs = len(store.log)
+        store.prune(orphans)
+        store.save()
+        out.write(f"Pruned {len(orphans)} card(s) and {logs - len(store.log)} log entries.\n")
+    else:
+        out.write(f"{len(orphans)} orphaned card(s); run again with --prune to remove them.\n")
     return 0
 
 
@@ -292,6 +318,8 @@ def main(
             return cmd_due(args, out, err, clock)
         if args.command == "stats":
             return cmd_stats(args, out, err, clock)
+        if args.command == "orphans":
+            return cmd_orphans(args, out, err)
         if args.command == "add":
             return cmd_add(args, out, err)
         if args.command == "import":

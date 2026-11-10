@@ -28,7 +28,7 @@ Estimates are rough working hours for one person.
 
 ## v0.4: state housekeeping (about 3 h)
 
-- [ ] `flashdeck orphans`: list (and with `--prune`, remove) state entries whose question no longer
+- [x] `flashdeck orphans`: list (and with `--prune`, remove) state entries whose question no longer
       appears in any given deck
 - [ ] `flashdeck rename-question`: carry a card's history over when its question is reworded
 - [ ] Compact the answer log (keep per-day summaries for entries older than a year)
