@@ -54,6 +54,20 @@ A: Estoy cansado.
   keeps the forward card's history and adds a new reverse card. If the answer
   is already a question elsewhere, the reverse card is reported as a
   duplicate and skipped. Two-way cards are one-line only.
+- **Cloze deletions:** a line with `{{gap}}` makes one card per gap. The card
+  hides that gap as `[...]` and shows the other gaps; the answer is the whole
+  sentence. A deck line `{{Paris}} is the capital of {{France}}.` quizzes:
+
+  ```text
+  [2 left] geo (new)  #geo
+    [...] is the capital of France.
+    -- Enter to show the answer, s to skip, e to edit, q to quit --
+    Paris is the capital of France.
+  ```
+
+  Tags work as on one-line cards. A line that is already a `::` card, or sits
+  in a fence or `Q:`/`A:` block, is not read as a cloze. Careful: prose with
+  `{{...}}` in it (such as a template) becomes cards too.
 - **Q/A blocks:** a line starting with `Q:` begins the question, `A:` begins
   the answer; both may run over several lines. The card ends at a blank line
   or the next `Q:`. Blank lines inside a fenced code block (```` ``` ````) do

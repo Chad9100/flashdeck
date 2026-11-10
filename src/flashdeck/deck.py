@@ -11,6 +11,11 @@ These card syntaxes are recognised, and can be mixed in one file:
 
       hola ::: hello
 
+* cloze lines, which make one card per ``{{gap}}``; the card hides that gap
+  as ``[...]`` and its answer is the whole sentence::
+
+      The capital of France is {{Paris}}.
+
 * question/answer blocks, which may span several lines and end at a blank
   line (blank lines inside a fenced code block do not end them)::
 
@@ -40,6 +45,8 @@ TAG_LINE_RE = re.compile(rf"^\s*{_TAG}(?:\s+{_TAG})*\s*$")
 TRAILING_TAGS_RE = re.compile(rf"(?:\s+{_TAG})+\s*$")
 ONE_LINE_RE = re.compile(r"^(?P<front>.*?\S)\s+::(?:\s+(?P<back>.*\S))?\s*$")
 REVERSE_RE = re.compile(r"^(?P<front>.*?\S)\s+:::(?:\s+(?P<back>.*\S))?\s*$")
+CLOZE_RE = re.compile(r"\{\{(.+?)\}\}")
+CLOZE_BLANK = "[...]"
 Q_RE = re.compile(r"^Q:\s?(.*)$")
 A_RE = re.compile(r"^A:\s?(.*)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -161,6 +168,23 @@ def parse_deck(text: str, deck: str = "", path: str = "") -> tuple[list[Card], l
                 continue
             if TAG_LINE_RE.match(line):
                 section_tags = [normalize_tag(t) for t in TAG_RE.findall(line)]
+                continue
+            if CLOZE_RE.search(line) and not ONE_LINE_RE.match(line):
+                text, own_tags = _split_trailing_tags(line)
+                gaps = list(CLOZE_RE.finditer(text))
+                full = _unescape(CLOZE_RE.sub(lambda g: g.group(1).strip(), text).strip())
+                tags = _merge_tags(section_tags, own_tags)
+                for target in gaps:
+                    pieces, pos = [], 0
+                    for g in gaps:
+                        pieces.append(text[pos:g.start()])
+                        pieces.append(CLOZE_BLANK if g is target else g.group(1).strip())
+                        pos = g.end()
+                    pieces.append(text[pos:])
+                    cards.append(
+                        Card(front=_unescape("".join(pieces).strip()), back=full,
+                             tags=list(tags), deck=deck, path=path, line=lineno)
+                    )
                 continue
             m = REVERSE_RE.match(line)
             both = m is not None
