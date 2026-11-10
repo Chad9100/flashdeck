@@ -108,7 +108,12 @@ def match_edited(card: Card, before_ids: set[str], after: list[Card]) -> Optiona
         if c.id == card.id:
             return c
     for c in after:
-        if c.path == card.path and c.line == card.line and c.id not in before_ids:
+        if (
+            c.path == card.path
+            and c.line == card.line
+            and c.reverse == card.reverse
+            and c.id not in before_ids
+        ):
             return c
     return None
 
@@ -206,6 +211,8 @@ def run_session(
         card = pending.popleft()
         before = store.get(card.id)
         label = "new" if before.state == NEW else before.state
+        if card.reverse:
+            label += ", reverse"
         tags = "  " + " ".join("#" + t for t in card.tags) if card.tags else ""
         hint = "s to skip, " + ("e to edit, " if edit else "") + ("u to undo, " if history else "") + "q to quit"
         out.write(f"\n[{len(pending) + 1} left] {card.deck} ({label}){tags}\n")

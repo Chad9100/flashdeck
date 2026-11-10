@@ -1,10 +1,15 @@
 """Parse plain-text / Markdown deck files into cards.
 
-Two card syntaxes are recognised, and can be mixed in one file:
+These card syntaxes are recognised, and can be mixed in one file:
 
 * one-line cards::
 
       hola :: hello #spanish
+
+* two-way cards, which make one card in each direction (each with its own
+  id and history)::
+
+      hola ::: hello
 
 * question/answer blocks, which may span several lines and end at a blank
   line (blank lines inside a fenced code block do not end them)::
@@ -34,6 +39,7 @@ TAG_RE = re.compile(_TAG)
 TAG_LINE_RE = re.compile(rf"^\s*{_TAG}(?:\s+{_TAG})*\s*$")
 TRAILING_TAGS_RE = re.compile(rf"(?:\s+{_TAG})+\s*$")
 ONE_LINE_RE = re.compile(r"^(?P<front>.*?\S)\s+::(?:\s+(?P<back>.*\S))?\s*$")
+REVERSE_RE = re.compile(r"^(?P<front>.*?\S)\s+:::(?:\s+(?P<back>.*\S))?\s*$")
 Q_RE = re.compile(r"^Q:\s?(.*)$")
 A_RE = re.compile(r"^A:\s?(.*)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -51,6 +57,7 @@ class Card:
     deck: str = ""
     path: str = ""
     line: int = 0
+    reverse: bool = False  # the back-to-front card of a ``front ::: back`` line
 
     @property
     def id(self) -> str:
@@ -155,22 +162,27 @@ def parse_deck(text: str, deck: str = "", path: str = "") -> tuple[list[Card], l
             if TAG_LINE_RE.match(line):
                 section_tags = [normalize_tag(t) for t in TAG_RE.findall(line)]
                 continue
-            m = ONE_LINE_RE.match(line)
+            m = REVERSE_RE.match(line)
+            both = m is not None
+            if not both:
+                m = ONE_LINE_RE.match(line)
             if m:
                 if m.group("back") is None:
-                    warnings.append(f"{where}:{lineno}: card has no answer after '::'; skipped")
+                    sep = ":::" if both else "::"
+                    warnings.append(f"{where}:{lineno}: card has no answer after '{sep}'; skipped")
                     continue
                 back_text, own_tags = _split_trailing_tags(m.group("back"))
-                cards.append(
-                    Card(
-                        front=_unescape(m.group("front").strip()),
-                        back=_unescape(back_text.strip()),
-                        tags=_merge_tags(section_tags, own_tags),
-                        deck=deck,
-                        path=path,
-                        line=lineno,
+                front_text = _unescape(m.group("front").strip())
+                back_text = _unescape(back_text.strip())
+                tags = _merge_tags(section_tags, own_tags)
+                sides = [(front_text, back_text, False)]
+                if both and card_id(back_text) != card_id(front_text):
+                    sides.append((back_text, front_text, True))
+                for f, b, rev in sides:
+                    cards.append(
+                        Card(front=f, back=b, tags=list(tags), deck=deck, path=path,
+                             line=lineno, reverse=rev)
                     )
-                )
             continue
 
         if is_fence:

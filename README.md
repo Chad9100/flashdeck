@@ -26,7 +26,7 @@ That puts a `flashdeck` command on your PATH. `python -m flashdeck` works too.
 ## Deck format
 
 A deck is any `.md`, `.markdown` or `.txt` file (UTF-8, with or without a
-BOM, LF or CRLF). Two kinds of cards can be mixed freely:
+BOM, LF or CRLF). The kinds of cards below can be mixed freely:
 
 ```markdown
 # Spanish basics
@@ -46,6 +46,14 @@ A: Estoy cansado.
 
 - **One-line cards:** `question :: answer`. The `::` needs a space on both
   sides, so `std::vector` is safe inside a question.
+- **Two-way cards:** `question ::: answer` (three colons) makes two cards, one
+  asked each way round: `hola ::: hello` quizzes `hola` and `hello`. Each
+  direction has its own id (the hash of the side it asks) and its own
+  history, and tags apply to both. The reverse card is labelled `reverse`
+  during review. Turning an existing `hola :: hello` into `hola ::: hello`
+  keeps the forward card's history and adds a new reverse card. If the answer
+  is already a question elsewhere, the reverse card is reported as a
+  duplicate and skipped. Two-way cards are one-line only.
 - **Q/A blocks:** a line starting with `Q:` begins the question, `A:` begins
   the answer; both may run over several lines. The card ends at a blank line
   or the next `Q:`. Blank lines inside a fenced code block (```` ``` ````) do
@@ -123,8 +131,9 @@ so that flashdeck waits until you close the file. Other editors just open the
 file. If the editor fails to
 start or exits with an error, the card is shown again unchanged.
 
-Answers can be piped in, which is how this real session was captured (the
-typed answers are not echoed when piped, so prompts and results share a line):
+Answers can be piped in, which is how this real session was captured, on
+2026-11-10 against a fresh state file, so your dates will differ (the typed
+answers are not echoed when piped, so prompts and results share a line):
 
 ```text
 $ printf '\n3\n\n1\n\n4\n\n3\n' | flashdeck review examples/spanish.md --new 3
@@ -132,25 +141,25 @@ $ printf '\n3\n\n1\n\n4\n\n3\n' | flashdeck review examples/spanish.md --new 3
 
 [3 left] spanish (new)  #spanish
   hola
-  -- Enter to show the answer, s to skip, e to edit, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, q to quit -- 
   hello
   1 again   2 hard   3 good   4 easy   (s skip, e edit, q quit) >   -> next in 1 day (2026-11-11)
 
 [2 left] spanish (new)  #spanish #greeting
   adiós
-  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit -- 
   goodbye
   1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> again later in this session
 
 [2 left] spanish (new)  #spanish
   gracias
-  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit -- 
   thank you
   1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> next in 4 days (2026-11-14)
 
 [1 left] spanish (learning)  #spanish #greeting
   adiós
-  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit --
+  -- Enter to show the answer, s to skip, e to edit, u to undo, q to quit -- 
   goodbye
   1 again   2 hard   3 good   4 easy   (s skip, e edit, u undo, q quit) >   -> next in 1 day (2026-11-11)
 
@@ -196,6 +205,17 @@ The deck is created if it does not exist. Multi-line cards, or questions that
 would be ambiguous as one line, are written as `Q:`/`A:` blocks; `#` that would
 be read as a tag is escaped. A question the deck already has is refused (exit
 status 1). The file's BOM and line endings are kept.
+
+`-r/--reverse` writes a two-way card instead:
+
+```text
+$ flashdeck add examples/spanish.md "la casa" "the house" --reverse
+Added to examples/spanish.md: la casa ::: the house
+```
+
+It is refused if either side spans several lines, if the deck already has the
+answer as a question (exit status 1), or if the card could not be read back the
+same way (for example a question containing ` ::: `).
 
 ### Importing from CSV
 

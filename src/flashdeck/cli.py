@@ -68,6 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("front", metavar="QUESTION")
     a.add_argument("back", metavar="ANSWER")
     a.add_argument("-t", "--tag", action="append", default=[], metavar="TAG")
+    a.add_argument("-r", "--reverse", action="store_true",
+                   help="also quiz answer -> question (writes 'question ::: answer')")
 
     i = sub.add_parser("import", help="append cards from a CSV file to a deck")
     i.add_argument("csv", metavar="CSV", help="CSV/TSV file, or - for standard input")
@@ -169,12 +171,16 @@ def cmd_stats(args, out, err, clock) -> int:
 def cmd_add(args, out, err) -> int:
     path = Path(args.deck)
     try:
-        block = format_card(args.front, args.back, args.tag)
+        block = format_card(args.front, args.back, args.tag, reverse=args.reverse)
     except ValueError as exc:
         err.write(f"flashdeck: {exc}\n")
         return 2
-    if card_id(args.front) in existing_ids(path):
+    have = existing_ids(path)
+    if card_id(args.front) in have:
         err.write(f"flashdeck: {path} already has that question\n")
+        return 1
+    if args.reverse and card_id(args.back) in have:
+        err.write(f"flashdeck: {path} already has the answer as a question (needed for the reverse card)\n")
         return 1
     append_cards(path, [block])
     out.write(f"Added to {args.deck}: {block.splitlines()[0]}\n")

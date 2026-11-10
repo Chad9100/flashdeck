@@ -34,18 +34,21 @@ def clean_tags(tags: Iterable[str]) -> list[str]:
     return out
 
 
-def format_card(front: str, back: str, tags: Iterable[str] = ()) -> str:
+def format_card(front: str, back: str, tags: Iterable[str] = (), reverse: bool = False) -> str:
     """Render a card as deck text (without a trailing newline).
 
     Short single-line cards use ``front :: back``; anything else becomes a
-    ``Q:``/``A:`` block. The result parses back to the same front, back and
-    tags.
+    ``Q:``/``A:`` block. With ``reverse`` the card is written as
+    ``front ::: back`` (a card in each direction), which only exists as a
+    one-line card. The result parses back to the same front, back and tags.
     """
     front = front.strip()
     back = back.strip()
     if not front or not back:
         raise ValueError("a card needs both a question and an answer")
     tag_text = "".join(f" #{t}" for t in clean_tags(tags))
+    if reverse:
+        return _format_reverse(front, back, tag_text, clean_tags(tags))
     multi = "\n" in front or "\n" in back
     awkward = (
         re.search(r"\s::(\s|$)", front)
@@ -71,6 +74,19 @@ def format_card(front: str, back: str, tags: Iterable[str] = ()) -> str:
     lines = [f"Q: {front_lines[0]}", *front_lines[1:], f"A: {back_lines[0]}", *back_lines[1:]]
     lines[-1] += tag_text
     return "\n".join(lines)
+
+
+def _format_reverse(front: str, back: str, tag_text: str, tags: list[str]) -> str:
+    if "\n" in front or "\n" in back:
+        raise ValueError("a two-way card must fit on one line (no line breaks)")
+    if card_id(front) == card_id(back):
+        raise ValueError("a two-way card needs a question and answer that differ")
+    text = f"{_escape(front)} ::: {_escape(back)}{tag_text}"
+    cards, _ = parse_deck(text)
+    expected = [(front, back, False), (back, front, True)]
+    if [(c.front, c.back, c.reverse) for c in cards] != expected or any(c.tags != tags for c in cards):
+        raise ValueError("this question cannot be written as a two-way card (it contains ':::' or 'Q:'/'A:')")
+    return text
 
 
 def append_cards(path: Path, blocks: list[str]) -> None:

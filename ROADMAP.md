@@ -20,9 +20,11 @@ Estimates are rough working hours for one person.
 
 ## v0.3: reverse and cloze cards (about 4 h)
 
-- [ ] `front ::: back` creates a card in both directions, each with its own id and history
+- [x] `front ::: back` creates a card in both directions, each with its own id and history
+- [x] `flashdeck add --reverse` writes two-way cards, with round-trip tests
 - [ ] Cloze deletions: `The capital of France is {{Paris}}.` yields one card per gap
-- [ ] Round-trip tests through `flashdeck add` for both kinds
+- [ ] `flashdeck add --cloze` with round-trip tests
+- [ ] Two-way `Q:`/`A:` blocks (multi-line cards can only be one-way for now)
 
 ## v0.4: state housekeeping (about 3 h)
 
