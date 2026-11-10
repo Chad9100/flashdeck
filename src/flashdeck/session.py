@@ -64,6 +64,7 @@ class SessionResult:
     cards: set[str] = field(default_factory=set)
     quit_early: bool = False
     undone: int = 0
+    skipped: int = 0
 
     @property
     def answers(self) -> int:
@@ -101,7 +102,9 @@ def run_session(
     input or Ctrl+C) never loses work. Cards answered "again" come back
     later in the same session. ``u`` (at either prompt) undoes the last
     answer: the card's previous state is restored, its log entry dropped,
-    and the card is asked again. Repeated ``u`` keeps going back.
+    and the card is asked again. Repeated ``u`` keeps going back. ``s``
+    (at either prompt) skips the card for the rest of the session without
+    grading it; its state and the answer log are left untouched.
     """
     result = SessionResult()
     pending = deque(queue)
@@ -129,12 +132,16 @@ def run_session(
             result.cards.discard(last.card.id)
         out.write(f"  <- undid \"{last.grade}\" on: {last.card.front.splitlines()[0]}\n")
 
+    def skip(current: Card) -> None:
+        result.skipped += 1
+        out.write(f"  -> skipped for this session: {current.front.splitlines()[0]}\n")
+
     while pending:
         card = pending.popleft()
         before = store.get(card.id)
         label = "new" if before.state == NEW else before.state
         tags = "  " + " ".join("#" + t for t in card.tags) if card.tags else ""
-        hint = "u to undo, q to quit" if history else "q to quit"
+        hint = "s to skip, u to undo, q to quit" if history else "s to skip, q to quit"
         out.write(f"\n[{len(pending) + 1} left] {card.deck} ({label}){tags}\n")
         out.write(_indent(card.front) + "\n")
         out.write(f"  -- Enter to show the answer, {hint} -- ")
@@ -148,11 +155,15 @@ def run_session(
             out.write("\n")
             undo(card)
             continue
+        if _is(line, "s"):
+            out.write("\n")
+            skip(card)
+            continue
         out.write("\n" + _indent(card.back) + "\n")
         grade = None
-        undone = False
+        handled = False
         while grade is None:
-            extra = "u undo, q quit" if history else "q to quit"
+            extra = "s skip, u undo, q quit" if history else "s skip, q quit"
             out.write(f"  1 again   2 hard   3 good   4 easy   ({extra}) > ")
             out.flush()
             line = read()
@@ -166,12 +177,17 @@ def run_session(
                     continue
                 out.write("\n")
                 undo(card)
-                undone = True
+                handled = True
+                break
+            if _is(line, "s"):
+                out.write("\n")
+                skip(card)
+                handled = True
                 break
             grade = parse_grade(line)
             if grade is None:
                 out.write("  Please answer 1-4 (or again/hard/good/easy).\n")
-        if undone:
+        if handled:
             continue
         if grade is None:
             break
@@ -195,6 +211,8 @@ def run_session(
 
 def summary(result: SessionResult) -> str:
     if result.answers == 0:
+        if result.skipped:
+            return f"No cards reviewed. Skipped {result.skipped}."
         return "No cards reviewed."
     c = result.counts
     parts = ", ".join(f"{g} {c[g]}" for g in GRADES)
@@ -202,6 +220,8 @@ def summary(result: SessionResult) -> str:
     text = f"Reviewed {n} card{'s' if n != 1 else ''} ({result.answers} answers: {parts})."
     if result.undone:
         text += f" Undid {result.undone}."
+    if result.skipped:
+        text += f" Skipped {result.skipped}."
     if result.quit_early:
         text += " Stopped early; progress saved."
     return text

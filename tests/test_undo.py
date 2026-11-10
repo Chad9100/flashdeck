@@ -99,9 +99,9 @@ def test_undo_hint_only_after_an_answer(tmp_path):
     out = io.StringIO()
     run_session(cards, Store(tmp_path / "s.json"), reader("", "3", "", "3"), out, lambda: NOW)
     text = out.getvalue()
-    assert text.count("Enter to show the answer, q to quit") == 1
-    assert text.count("Enter to show the answer, u to undo, q to quit") == 1
-    assert text.count("(u undo, q quit)") == 1
+    assert text.count("Enter to show the answer, s to skip, q to quit") == 1
+    assert text.count("Enter to show the answer, s to skip, u to undo, q to quit") == 1
+    assert text.count("(s skip, u undo, q quit)") == 1
 
 
 def test_store_unrecord_removes_last_entry_for_that_card(tmp_path):
