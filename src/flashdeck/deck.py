@@ -49,6 +49,7 @@ CLOZE_RE = re.compile(r"\{\{(.+?)\}\}")
 CLOZE_BLANK = "[...]"
 Q_RE = re.compile(r"^Q:\s?(.*)$")
 A_RE = re.compile(r"^A:\s?(.*)$")
+A_BOTH_RE = re.compile(r"^A::(?:\s(.*))?$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 
@@ -125,9 +126,10 @@ def parse_deck(text: str, deck: str = "", path: str = "") -> tuple[list[Card], l
     front: list[str] = []
     back: list[str] = []
     start = 0
+    both = False  # the current Q:/A:: block is two-way
 
     def finish() -> None:
-        nonlocal mode
+        nonlocal mode, both
         front_text = "\n".join(front).strip()
         back_text = "\n".join(back).strip()
         if mode == "q":
@@ -140,17 +142,24 @@ def parse_deck(text: str, deck: str = "", path: str = "") -> tuple[list[Card], l
             if not back_text:
                 warnings.append(f"{where}:{start}: empty answer; skipped")
             else:
-                cards.append(
-                    Card(
-                        front=_unescape(front_text),
-                        back=_unescape(back_text),
-                        tags=_merge_tags(section_tags, own_tags),
-                        deck=deck,
-                        path=path,
-                        line=start,
+                f, b = _unescape(front_text), _unescape(back_text)
+                sides = [(f, b, False)]
+                if both and card_id(f) != card_id(b):
+                    sides.append((b, f, True))
+                for sf, sb, rev in sides:
+                    cards.append(
+                        Card(
+                            front=sf,
+                            back=sb,
+                            tags=_merge_tags(section_tags, own_tags),
+                            deck=deck,
+                            path=path,
+                            line=start,
+                            reverse=rev,
+                        )
                     )
-                )
         mode = None
+        both = False
 
     for lineno, raw in enumerate(lines, 1):
         line = raw.rstrip()
@@ -212,8 +221,11 @@ def parse_deck(text: str, deck: str = "", path: str = "") -> tuple[list[Card], l
         if is_fence:
             in_fence = not in_fence
         if mode == "q":
+            ab = A_BOTH_RE.match(line) if not in_fence else None
             a = A_RE.match(line) if not in_fence else None
-            if a:
+            if ab:
+                mode, back, both = "a", [ab.group(1) or ""], True
+            elif a:
                 mode, back = "a", [a.group(1)]
             elif not line.strip() and not in_fence:
                 finish()

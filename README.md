@@ -53,7 +53,10 @@ A: Estoy cansado.
   during review. Turning an existing `hola :: hello` into `hola ::: hello`
   keeps the forward card's history and adds a new reverse card. If the answer
   is already a question elsewhere, the reverse card is reported as a
-  duplicate and skipped. Two-way cards are one-line only.
+  duplicate and skipped. For multi-line two-way cards, start the answer of a
+  `Q:` block with `A::` (two colons) instead of `A:`; the block then makes a
+  card in each direction, with the same rules as `:::`. `flashdeck add
+  --reverse` still writes one-line cards only.
 - **Cloze deletions:** a line with `{{gap}}` makes one card per gap. The card
   hides that gap as `[...]` and shows the other gaps; the answer is the whole
   sentence. A deck line `{{Paris}} is the capital of {{France}}.` quizzes:
