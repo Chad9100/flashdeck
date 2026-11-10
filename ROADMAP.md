@@ -23,7 +23,7 @@ Estimates are rough working hours for one person.
 - [x] `front ::: back` creates a card in both directions, each with its own id and history
 - [x] `flashdeck add --reverse` writes two-way cards, with round-trip tests
 - [x] Cloze deletions: `The capital of France is {{Paris}}.` yields one card per gap
-- [ ] `flashdeck add --cloze` with round-trip tests
+- [x] `flashdeck add --cloze` with round-trip tests
 - [ ] Two-way `Q:`/`A:` blocks (multi-line cards can only be one-way for now)
 
 ## v0.4: state housekeeping (about 3 h)

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .deck import card_id, load_decks, normalize_tag, parse_deck, read_text
+from .deck import CLOZE_RE, card_id, load_decks, normalize_tag, parse_deck, read_text
 
 _LOOKS_LIKE_TAG = re.compile(r"(?<![\\\w])#(?=[^\W\d])")
 _TAG_OK = re.compile(r"^[^\W\d][\w/-]*$")
@@ -87,6 +87,27 @@ def _format_reverse(front: str, back: str, tag_text: str, tags: list[str]) -> st
     if [(c.front, c.back, c.reverse) for c in cards] != expected or any(c.tags != tags for c in cards):
         raise ValueError("this question cannot be written as a two-way card (it contains ':::' or 'Q:'/'A:')")
     return text
+
+
+def format_cloze(text: str, tags: Iterable[str] = ()) -> str:
+    """Render a cloze line such as ``The capital is {{Paris}}.`` as deck text.
+
+    One line only. The result parses back to one card per gap, with the whole
+    sentence as every card's answer and the given tags.
+    """
+    text = text.strip()
+    if "\n" in text:
+        raise ValueError("a cloze card must fit on one line (no line breaks)")
+    gaps = CLOZE_RE.findall(text)
+    if not gaps:
+        raise ValueError("a cloze card needs at least one {{gap}}")
+    tag_list = clean_tags(tags)
+    line = f"{_escape(text)}{''.join(f' #{t}' for t in tag_list)}"
+    full = CLOZE_RE.sub(lambda g: g.group(1).strip(), text).strip()
+    cards, _ = parse_deck(line)
+    if len(cards) != len(gaps) or any(c.back != full or c.tags != tag_list for c in cards):
+        raise ValueError("this text cannot be written as a cloze card (it contains '::', ':::' or 'Q:')")
+    return line
 
 
 def append_cards(path: Path, blocks: list[str]) -> None:

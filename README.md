@@ -231,6 +231,18 @@ It is refused if either side spans several lines, if the deck already has the
 answer as a question (exit status 1), or if the card could not be read back the
 same way (for example a question containing ` ::: `).
 
+`-c/--cloze` writes a cloze line instead; give the text with `{{gaps}}` and no
+answer:
+
+```text
+$ flashdeck add geo.md "{{Paris}} is the capital of {{France}}." --cloze -t geo
+Added to geo.md: {{Paris}} is the capital of {{France}}. #geo (2 card(s))
+```
+
+It needs at least one gap and a single line, cannot be combined with
+`--reverse`, and is refused (exit status 1) if the deck already has a card for
+any of the gaps.
+
 ### Importing from CSV
 
 ```text

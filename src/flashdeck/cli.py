@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
 from . import __version__
-from .deck import Card, DeckError, card_id, filter_tags, load_decks
+from .deck import Card, DeckError, card_id, filter_tags, load_decks, parse_deck
 from .editor import EditorError, open_in_editor
 from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
 from .stats import compute_stats, due_counts, format_due, format_stats
 from .store import Store, StoreError, default_state_path
-from .writer import append_cards, clean_tags, existing_ids, format_card, import_rows, read_csv_rows
+from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, import_rows, read_csv_rows
 
 
 def _positive(text: str) -> int:
@@ -66,8 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
     a = sub.add_parser("add", help="append a card to a deck file")
     a.add_argument("deck", metavar="DECK", help="deck file (created if missing)")
     a.add_argument("front", metavar="QUESTION")
-    a.add_argument("back", metavar="ANSWER")
+    a.add_argument("back", metavar="ANSWER", nargs="?",
+                   help="the answer (omit with --cloze)")
     a.add_argument("-t", "--tag", action="append", default=[], metavar="TAG")
+    a.add_argument("-c", "--cloze", action="store_true",
+                   help="treat QUESTION as a cloze line with {{gaps}}; no ANSWER")
     a.add_argument("-r", "--reverse", action="store_true",
                    help="also quiz answer -> question (writes 'question ::: answer')")
 
@@ -170,12 +173,30 @@ def cmd_stats(args, out, err, clock) -> int:
 
 def cmd_add(args, out, err) -> int:
     path = Path(args.deck)
+    if args.cloze:
+        if args.back is not None or args.reverse:
+            err.write("flashdeck: --cloze takes one text with {{gaps}}, no answer, and not --reverse\n")
+            return 2
+    elif args.back is None:
+        err.write("flashdeck: add needs a question and an answer\n")
+        return 2
     try:
-        block = format_card(args.front, args.back, args.tag, reverse=args.reverse)
+        if args.cloze:
+            block = format_cloze(args.front, args.tag)
+        else:
+            block = format_card(args.front, args.back, args.tag, reverse=args.reverse)
     except ValueError as exc:
         err.write(f"flashdeck: {exc}\n")
         return 2
     have = existing_ids(path)
+    if args.cloze:
+        new_cards, _ = parse_deck(block)
+        if any(c.id in have for c in new_cards):
+            err.write(f"flashdeck: {path} already has a card for one of those gaps\n")
+            return 1
+        append_cards(path, [block])
+        out.write(f"Added to {args.deck}: {block} ({len(new_cards)} card(s))\n")
+        return 0
     if card_id(args.front) in have:
         err.write(f"flashdeck: {path} already has that question\n")
         return 1
