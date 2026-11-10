@@ -98,6 +98,12 @@ letters). Cards you get wrong come back later in the same session. `q`, Ctrl+C
 or end of input stops; the state file is saved after every answer, so nothing
 is lost.
 
+Pressed the wrong key? Type `u` at either prompt to undo the last answer: the
+card's previous schedule is restored, its entry is dropped from the answer log,
+and the card is asked again (a card sent back by "again" is not asked twice).
+Press `u` repeatedly to go further back, as far as the start of the session.
+The summary line notes how many answers were undone.
+
 Answers can be piped in, which is how this real session was captured (the
 typed answers are not echoed when piped, so prompts and results share a line):
 
@@ -113,21 +119,21 @@ $ printf '\n3\n\n1\n\n4\n\n3\n' | flashdeck review examples/spanish.md --new 3
 
 [2 left] spanish (new)  #spanish #greeting
   adiós
-  -- Enter to show the answer, q to quit --
+  -- Enter to show the answer, u to undo, q to quit --
   goodbye
-  1 again   2 hard   3 good   4 easy   (q to quit) >   -> again later in this session
+  1 again   2 hard   3 good   4 easy   (u undo, q quit) >   -> again later in this session
 
 [2 left] spanish (new)  #spanish
   gracias
-  -- Enter to show the answer, q to quit --
+  -- Enter to show the answer, u to undo, q to quit --
   thank you
-  1 again   2 hard   3 good   4 easy   (q to quit) >   -> next in 4 days (2026-11-14)
+  1 again   2 hard   3 good   4 easy   (u undo, q quit) >   -> next in 4 days (2026-11-14)
 
 [1 left] spanish (learning)  #spanish #greeting
   adiós
-  -- Enter to show the answer, q to quit --
+  -- Enter to show the answer, u to undo, q to quit --
   goodbye
-  1 again   2 hard   3 good   4 easy   (q to quit) >   -> next in 1 day (2026-11-11)
+  1 again   2 hard   3 good   4 easy   (u undo, q quit) >   -> next in 1 day (2026-11-11)
 
 Reviewed 3 cards (4 answers: again 1, hard 0, good 2, easy 1).
 ```

@@ -14,7 +14,7 @@ Estimates are rough working hours for one person.
 
 ## v0.2: undo and editing during review (about 3 h)
 
-- [ ] `u` undoes the last answer in a session (restore the previous card state, drop the log entry)
+- [x] `u` undoes the last answer in a session (restore the previous card state, drop the log entry)
 - [ ] `s` skips a card for this session without grading it
 - [ ] `e` opens the card's deck file in `$EDITOR` at the card's line, then reloads the deck
 

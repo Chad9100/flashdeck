@@ -97,6 +97,23 @@ class Store:
             {"id": card_id, "at": at, "grade": grade, "from": before.state, "interval": after.interval}
         )
 
+    def unrecord(self, card_id: str, previous: Optional[CardState]) -> None:
+        """Take back the most recent ``record`` for ``card_id``.
+
+        ``previous`` is the card's stored state before that answer, or
+        ``None`` if it had no entry (a new card), in which case the entry is
+        removed again. The matching log entry (the last one for this card)
+        is dropped.
+        """
+        if previous is None:
+            self.cards.pop(card_id, None)
+        else:
+            self.cards[card_id] = previous
+        for i in range(len(self.log) - 1, -1, -1):
+            if self.log[i].get("id") == card_id:
+                del self.log[i]
+                break
+
     def save(self) -> None:
         data = {
             "version": FORMAT_VERSION,
