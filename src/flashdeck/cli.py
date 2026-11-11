@@ -12,6 +12,7 @@ from typing import Callable, Optional, Sequence, TextIO
 
 from . import __version__
 from .deck import Card, DeckError, card_id, filter_tags, load_decks, parse_deck
+from .export import FORMATS, export_cards
 from .editor import EditorError, open_in_editor
 from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
 from .stats import (
@@ -85,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="carry a card's review history over to a reworded question")
     rn.add_argument("old", metavar="OLD", help="the old question, or its id as shown by 'orphans'")
     rn.add_argument("new", metavar="NEW", help="the new question")
+
+    x = sub.add_parser("export", parents=[tagged], help="write cards as CSV or Anki text")
+    x.add_argument("decks", nargs="+", metavar="DECK", help="deck files or directories")
+    x.add_argument("--format", choices=FORMATS, default="csv", help="output format (default csv)")
+    x.add_argument("-o", "--output", metavar="FILE", help="write to FILE instead of standard output")
 
     a = sub.add_parser("add", help="append a card to a deck file")
     a.add_argument("deck", metavar="DECK", help="deck file (created if missing)")
@@ -258,6 +264,22 @@ def cmd_rename_question(args, out, err) -> int:
     return 0
 
 
+def cmd_export(args, out, err) -> int:
+    cards = _load(args, err)
+    text = export_cards(cards, args.format)
+    if args.output:
+        try:
+            with open(args.output, "w", encoding="utf-8", newline="") as fh:
+                fh.write(text)
+        except OSError as exc:
+            err.write(f"flashdeck: cannot write {args.output}: {exc.strerror or exc}\n")
+            return 2
+        err.write(f"Exported {len(cards)} card(s) to {args.output}.\n")
+    else:
+        out.write(text)
+    return 0
+
+
 def cmd_add(args, out, err) -> int:
     path = Path(args.deck)
     if args.cloze:
@@ -383,6 +405,8 @@ def main(
             return cmd_orphans(args, out, err)
         if args.command == "rename-question":
             return cmd_rename_question(args, out, err)
+        if args.command == "export":
+            return cmd_export(args, out, err)
         if args.command == "add":
             return cmd_add(args, out, err)
         if args.command == "import":

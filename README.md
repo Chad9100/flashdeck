@@ -403,6 +403,32 @@ Pruned 1 card(s) and 1 log entries.
 Pass every deck you still use: a card from a deck you leave out counts as
 orphaned. A deck that cannot be read is an error and nothing is pruned.
 
+### Exporting
+
+`flashdeck export DECK...` writes every card (two-way and cloze cards as one
+row each) to standard output, or to a file with `-o FILE`. `--format csv` (the
+default) has a `front,back,tags` header and can be read back by
+`flashdeck import --header`; `--format anki` writes tab-separated text with
+the `#separator`, `#html` and `#tags column` header lines that Anki's import
+dialog understands. `-t TAG` exports only matching cards.
+
+```text
+$ flashdeck export examples/spanish.md
+front,back,tags
+hola,hello,spanish
+adiós,goodbye,spanish greeting
+gracias,thank you,spanish
+por favor,please,spanish
+"How do you say
+""I am tired""?","Estoy cansado.
+(cansada if you are female)",spanish
+$ flashdeck export examples/spanish.md --format anki -t greeting
+#separator:tab
+#html:false
+#tags column:3
+adiós	goodbye	spanish greeting
+```
+
 ### Rewording a question
 
 To keep a card's history when you reword its question, move it before
