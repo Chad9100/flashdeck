@@ -36,7 +36,7 @@ Estimates are rough working hours for one person.
 ## v0.5: better scheduling options (about 4 h)
 
 - [ ] Configurable learning steps in minutes (e.g. `1m 10m`) instead of "later in this session"
-- [ ] Interval fuzz (+/- 5%) so cards added together do not stay bunched together
+- [x] Interval fuzz (`review --fuzz PCT`) so cards added together do not stay bunched together
 - [x] Credit for late reviews: a card answered correctly well past its due date gets a longer interval
 - [ ] Optional FSRS scheduler behind `--scheduler fsrs`, with SM-2 remaining the default
 

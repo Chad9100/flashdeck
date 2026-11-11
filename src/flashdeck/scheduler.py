@@ -18,6 +18,7 @@ in the same session (learning / relearning) and, once answered, starts over at
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass, replace
 from datetime import date, timedelta
 from typing import Optional
@@ -110,8 +111,38 @@ def next_ease(ease: float, grade: str) -> float:
     return round(max(MIN_EASE, ease), 4)
 
 
-def schedule(st: CardState, grade: str, today: date, now_iso: Optional[str] = None) -> CardState:
-    """Return the card's new state after answering it with ``grade`` on ``today``."""
+FUZZ_MIN_INTERVAL = 8  # shorter intervals are left exact
+
+
+def fuzz_interval(interval: int, prev: int, percent: float, key: str) -> int:
+    """Spread ``interval`` by up to +/- ``percent`` per cent, deterministically.
+
+    The offset comes from a hash of ``key`` (card id plus repetition count), so
+    the same answer always gives the same result (undo and redo agree) while
+    different cards land on different days. Intervals under 8 days are kept,
+    and the result is never shorter than ``prev + 1`` or above MAX_INTERVAL.
+    """
+    if percent <= 0 or interval < FUZZ_MIN_INTERVAL:
+        return interval
+    digest = hashlib.sha1(key.encode("utf-8")).digest()
+    unit = int.from_bytes(digest[:4], "big") / 0xFFFFFFFF * 2 - 1  # -1.0 .. 1.0
+    fuzzed = round(interval * (1 + unit * percent / 100))
+    return min(MAX_INTERVAL, max(fuzzed, prev + 1))
+
+
+def schedule(
+    st: CardState,
+    grade: str,
+    today: date,
+    now_iso: Optional[str] = None,
+    fuzz: float = 0.0,
+    key: str = "",
+) -> CardState:
+    """Return the card's new state after answering it with ``grade`` on ``today``.
+
+    ``fuzz`` is a percentage (0 = off) used to spread review intervals; ``key``
+    seeds it (see :func:`fuzz_interval`).
+    """
     if grade not in QUALITY:
         raise ValueError(f"unknown grade {grade!r}")
     ease = st.ease
@@ -149,6 +180,7 @@ def schedule(st: CardState, grade: str, today: date, now_iso: Optional[str] = No
         else:
             interval = round((prev + late * LATE_CREDIT["easy"]) * st.ease * EASY_BONUS)
         interval = max(interval, prev + 1)
+        interval = fuzz_interval(interval, prev, fuzz, f"{key}:{reps}:{grade}")
     interval = min(interval, MAX_INTERVAL)
     return replace(
         st, state=REVIEW, ease=ease, interval=interval, reps=reps,

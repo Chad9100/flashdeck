@@ -110,7 +110,7 @@ correctly; `review` counts graduated cards whose interval has run out.
 ### Review
 
 ```sh
-flashdeck review DECK... [--new N] [--limit N] [-t TAG] [--state PATH]
+flashdeck review DECK... [--new N] [--limit N] [--fuzz PCT] [-t TAG] [--state PATH]
 ```
 
 Due cards come first (most overdue first), then new cards in deck order. `--new`
@@ -504,6 +504,22 @@ ease 2.5, answered 5 days early, on time and 10 days late:
 early (-5 days): {'hard': 12, 'good': 25, 'easy': 32}
 on time:         {'hard': 12, 'good': 25, 'easy': 32}
 10 days late:    {'hard': 15, 'good': 38, 'easy': 65}
+```
+
+### Interval fuzz
+
+Cards added together tend to come back together. `flashdeck review --fuzz PCT`
+(0 to 50, default 0 = off) spreads review intervals of 8 days or more by up to
++/-PCT percent. The offset is derived from a hash of the card id and its
+repetition count rather than a random number, so the same answer always gives
+the same interval (undo and redo agree) while different cards land on
+different days. The result is never shorter than the previous interval plus one
+day, and learning steps and short intervals are left exact. Eight different
+cards, each answered "good" from a 20-day interval:
+
+```
+fuzz 0%: [50, 50, 50, 50, 50, 50, 50, 50]
+fuzz 5%: [48, 49, 50, 49, 50, 52, 52, 52]
 ```
 
 The hard and easy multipliers are small tweaks borrowed from Anki; plain SM-2

@@ -133,6 +133,7 @@ def run_session(
     out: TextIO,
     clock: Clock,
     edit: Optional[EditCallback] = None,
+    fuzz: float = 0.0,
 ) -> SessionResult:
     """Show each card, wait for Enter, reveal, ask for a grade, reschedule.
 
@@ -274,7 +275,8 @@ def run_session(
         if grade is None:
             break
         now = clock()
-        after = schedule(before, grade, now.date(), now.isoformat(timespec="seconds"))
+        after = schedule(before, grade, now.date(), now.isoformat(timespec="seconds"),
+                         fuzz=fuzz, key=card.id)
         previous = store.cards.get(card.id)
         store.record(card.id, before, after, grade, now.isoformat(timespec="seconds"))
         store.save()

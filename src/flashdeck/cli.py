@@ -23,6 +23,16 @@ from .store import Store, StoreError, default_state_path
 from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, html_to_text, import_rows, read_csv_rows, split_anki_header
 
 
+def _percent(text: str) -> float:
+    try:
+        n = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number, got {text!r}") from None
+    if not 0 <= n <= 50:
+        raise argparse.ArgumentTypeError("must be between 0 and 50")
+    return n
+
+
 def _positive(text: str) -> int:
     try:
         n = int(text)
@@ -60,6 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="new cards per day (default 20)")
     r.add_argument("--limit", type=_positive, default=200, metavar="N",
                    help="most cards in this session (default 200)")
+    r.add_argument("--fuzz", type=_percent, default=0.0, metavar="PCT",
+                   help="spread review intervals of 8+ days by up to +/-PCT percent (default 0 = off)")
 
     d = sub.add_parser("due", parents=[common, tagged], help="show what is due, per deck")
     d.add_argument("decks", nargs="+", metavar="DECK")
@@ -181,7 +193,7 @@ def cmd_review(args, out, err, clock, read, edit_file: EditFile = open_in_editor
     n_new = sum(1 for c in queue if store.state_of(c.id) == "new")
     out.write(f"{len(queue)} card(s): {len(queue) - n_new} due, {n_new} new.\n")
     edit = _edit_callback(args, err, edit_file, all_cards)
-    result = run_session(queue, store, read, out, clock, edit=edit)
+    result = run_session(queue, store, read, out, clock, edit=edit, fuzz=args.fuzz)
     out.write("\n" + summary(result) + "\n")
     return 0
 
