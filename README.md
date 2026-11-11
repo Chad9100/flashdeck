@@ -227,6 +227,26 @@ python        3     3      0       0       0    n/a        n/a
 spanish       5     4      0       1       0   2.50        n/a
 ```
 
+`--heatmap` shows the last 12 weeks of reviews (one column per week, Monday to
+Sunday, `-` for a day without reviews, `.` to `#` from light to heavy) and your
+study streak. The current streak stays alive if you have not studied yet today
+but did yesterday. Captured on 2026-11-11 from a hand-made review history for
+`examples/python.md` (`--json` gives the same numbers plus per-day counts):
+
+```text
+$ flashdeck stats examples/python.md --heatmap
+Reviews, last 12 weeks (each column is a week, '.' to '#' is light to heavy):
+  Mon - - - - - - - - - - - -
+  Tue - - - - . - - - . . - .
+  Wed - - - - : - - . - - - -
+  Thu - - - - - . - - - - .  
+  Fri - - - - - + - - - - .  
+  Sat - - - - - . - - - - :  
+  Sun - - - - - - - - - - .  
+Studied 13 of the last 80 days, 17 reviews.
+Current streak: 1 day. Longest streak: 4 days.
+```
+
 ### JSON output
 
 `due --json` and `stats --json` print the same numbers as one JSON document,

@@ -16,7 +16,7 @@ from .editor import EditorError, open_in_editor
 from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
 from .stats import (
     compute_grouped, compute_stats, due_counts, due_to_dict, format_due, format_grouped,
-    format_stats, grouped_to_dict, stats_to_dict,
+    format_heatmap, format_stats, grouped_to_dict, heatmap_to_dict, review_days, stats_to_dict,
 )
 from .store import Store, StoreError, default_state_path
 from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, import_rows, read_csv_rows
@@ -72,6 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
     grp.add_argument("--by-deck", action="store_true", help="one row per deck instead of the summary")
     grp.add_argument("--by-tag", action="store_true",
                      help="one row per tag (a card counts under each of its tags)")
+    grp.add_argument("--heatmap", action="store_true",
+                     help="12-week review heatmap with current and longest study streak")
 
     o =sub.add_parser("orphans", parents=[common],
                        help="list (or --prune) state entries whose card is in no given deck")
@@ -192,6 +194,14 @@ def cmd_due(args, out, err, clock) -> int:
 def cmd_stats(args, out, err, clock) -> int:
     cards = _load(args, err)
     store = Store(_state_path(args))
+    if args.heatmap:
+        days = review_days(cards, store)
+        today = clock().date()
+        if args.json:
+            out.write(json.dumps(heatmap_to_dict(days, today), indent=2) + "\n")
+        else:
+            out.write(format_heatmap(days, today) + "\n")
+        return 0
     by = "deck" if args.by_deck else "tag" if args.by_tag else None
     if by:
         groups = compute_grouped(cards, store, clock().date(), by)

@@ -180,6 +180,82 @@ def format_stats(s: Stats) -> str:
     return "\n".join(lines)
 
 
+HEATMAP_WEEKS = 12
+_SHADES = " .:+#"  # none, then four levels of activity
+
+
+def review_days(cards: list[Card], store: Store) -> dict[date, int]:
+    """Number of answers logged per calendar day for the given cards."""
+    ids = {c.id for c in cards}
+    days: dict[date, int] = {}
+    for e in store.log:
+        if e.get("id") not in ids:
+            continue
+        try:
+            d = date.fromisoformat(str(e.get("at", ""))[:10])
+        except ValueError:
+            continue
+        days[d] = days.get(d, 0) + 1
+    return days
+
+
+def streaks(days: dict[date, int], today: date) -> tuple[int, int]:
+    """(current, longest) run of consecutive study days.
+
+    The current streak is still alive if you have not studied yet today but did yesterday.
+    """
+    longest = run = 0
+    prev = None
+    for d in sorted(x for x in days if x <= today):
+        run = run + 1 if prev is not None and (d - prev).days == 1 else 1
+        longest = max(longest, run)
+        prev = d
+    current = 0
+    d = today if today in days else today - timedelta(days=1)
+    while d in days:
+        current += 1
+        d -= timedelta(days=1)
+    return current, longest
+
+
+def heatmap_to_dict(days: dict[date, int], today: date, weeks: int = HEATMAP_WEEKS) -> dict:
+    current, longest = streaks(days, today)
+    start = _heatmap_start(today, weeks)
+    shown = {d.isoformat(): n for d, n in sorted(days.items()) if start <= d <= today}
+    return {"streak": current, "longest_streak": longest, "weeks": weeks,
+            "days_studied": len(shown), "reviews": sum(shown.values()), "days": shown}
+
+
+def _heatmap_start(today: date, weeks: int) -> date:
+    monday = today - timedelta(days=today.weekday())
+    return monday - timedelta(weeks=weeks - 1)
+
+
+def format_heatmap(days: dict[date, int], today: date, weeks: int = HEATMAP_WEEKS) -> str:
+    """Weeks as columns, Monday to Sunday as rows; darker means more reviews that day."""
+    start = _heatmap_start(today, weeks)
+    peak = max([n for d, n in days.items() if start <= d <= today] + [1])
+    lines = [f"Reviews, last {weeks} weeks (each column is a week, '.' to '#' is light to heavy):"]
+    for row, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+        cells = []
+        for w in range(weeks):
+            d = start + timedelta(weeks=w, days=row)
+            if d > today:
+                cells.append(" ")
+                continue
+            n = days.get(d, 0)
+            level = 0 if n == 0 else 1 + min(3, (n - 1) * 4 // peak)
+            cells.append(_SHADES[level] if level else "-")
+        lines.append(f"  {name} " + " ".join(cells))
+    current, longest = streaks(days, today)
+    shown = [n for d, n in days.items() if start <= d <= today]
+    lines.append(f"Studied {len(shown)} of the last {(today - start).days + 1} days, "
+                 f"{sum(shown)} reviews.")
+    unit = lambda n: f"{n} day" + ("" if n == 1 else "s")
+    lines.append(f"Current streak: {unit(current)}. Longest streak: {unit(longest)}.")
+    return "\n".join(lines)
+
+
 UNTAGGED = "(untagged)"
 
 
