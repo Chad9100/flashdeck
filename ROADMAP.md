@@ -44,7 +44,7 @@ Estimates are rough working hours for one person.
 
 - [ ] `stats --by-deck` and `--by-tag` breakdowns
 - [ ] Review heatmap for the last 12 weeks and current study streak
-- [ ] `--json` output for `due` and `stats`
+- [x] `--json` output for `due` and `stats`
 
 ## v0.7: import and export (about 3 h)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,9 @@ from . import __version__
 from .deck import Card, DeckError, card_id, filter_tags, load_decks, parse_deck
 from .editor import EditorError, open_in_editor
 from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
-from .stats import compute_stats, due_counts, format_due, format_stats
+from .stats import (
+    compute_stats, due_counts, due_to_dict, format_due, format_stats, stats_to_dict,
+)
 from .store import Store, StoreError, default_state_path
 from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, import_rows, read_csv_rows
 
@@ -58,10 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("due", parents=[common, tagged], help="show what is due, per deck")
     d.add_argument("decks", nargs="+", metavar="DECK")
+    d.add_argument("--json", action="store_true", help="print machine-readable JSON")
 
     s = sub.add_parser("stats", parents=[common, tagged], help="retention, card states, 7-day forecast")
     s.add_argument("decks", nargs="+", metavar="DECK")
     s.add_argument("--days", type=_positive, default=7, metavar="N", help="forecast length (default 7)")
+    s.add_argument("--json", action="store_true", help="print machine-readable JSON")
 
     o = sub.add_parser("orphans", parents=[common],
                        help="list (or --prune) state entries whose card is in no given deck")
@@ -171,14 +176,22 @@ def cmd_review(args, out, err, clock, read, edit_file: EditFile = open_in_editor
 def cmd_due(args, out, err, clock) -> int:
     cards = _load(args, err)
     store = Store(_state_path(args))
-    out.write(format_due(due_counts(cards, store, clock().date())) + "\n")
+    rows = due_counts(cards, store, clock().date())
+    if args.json:
+        out.write(json.dumps(due_to_dict(rows), ensure_ascii=False, indent=2) + "\n")
+    else:
+        out.write(format_due(rows) + "\n")
     return 0
 
 
 def cmd_stats(args, out, err, clock) -> int:
     cards = _load(args, err)
     store = Store(_state_path(args))
-    out.write(format_stats(compute_stats(cards, store, clock().date(), days=args.days)) + "\n")
+    st = compute_stats(cards, store, clock().date(), days=args.days)
+    if args.json:
+        out.write(json.dumps(stats_to_dict(st), ensure_ascii=False, indent=2) + "\n")
+    else:
+        out.write(format_stats(st) + "\n")
     return 0
 
 

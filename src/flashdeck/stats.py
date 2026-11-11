@@ -58,6 +58,17 @@ def format_due(rows: list[DueRow]) -> str:
     return "\n".join(lines)
 
 
+def due_to_dict(rows: list[DueRow]) -> dict:
+    """The ``due --json`` document: one object per deck plus totals."""
+    decks = [
+        {"deck": r.deck, "due": r.due, "learning": r.learning, "review": r.review,
+         "new": r.new, "cards": r.total}
+        for r in rows
+    ]
+    keys = ("due", "learning", "review", "new", "cards")
+    return {"decks": decks, "total": {k: sum(d[k] for d in decks) for k in keys}}
+
+
 @dataclass
 class Stats:
     total: int = 0
@@ -119,6 +130,27 @@ def compute_stats(cards: list[Card], store: Store, today: date, days: int = 7) -
             buckets[offset] += 1
     s.forecast = [(today + timedelta(days=i), n) for i, n in enumerate(buckets)]
     return s
+
+
+def stats_to_dict(s: Stats) -> dict:
+    """The ``stats --json`` document; retention rate is null when there is no data."""
+
+    def retention(pair: tuple[int, int]) -> dict:
+        passed, total = pair
+        return {"passed": passed, "total": total,
+                "rate": round(passed / total, 4) if total else None}
+
+    return {
+        "cards": s.total,
+        "states": dict(s.by_state),
+        "mature": s.mature,
+        "ease_average": round(s.avg_ease, 2) if s.avg_ease is not None else None,
+        "lapses": s.lapses,
+        "reviews": {"total": s.reviews_total, "today": s.reviews_today},
+        "retention": {"last_30_days": retention(s.retention_30),
+                      "all_time": retention(s.retention_all)},
+        "forecast": [{"date": d.isoformat(), "due": n} for d, n in s.forecast],
+    }
 
 
 def _pct(pair: tuple[int, int]) -> str:

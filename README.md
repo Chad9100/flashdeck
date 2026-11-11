@@ -211,6 +211,88 @@ Retention is the share of reviews of graduated cards that were not answered
 Mature cards have an interval of 21 days or more. `today` in the forecast
 includes overdue cards. `--days N` changes the forecast length.
 
+### JSON output
+
+`due --json` and `stats --json` print the same numbers as one JSON document,
+for scripts, status bars and dashboards. Captured on 2026-11-11 after one
+answered card in a fresh state (your dates will differ):
+
+```text
+$ flashdeck due examples --json
+{
+  "decks": [
+    {
+      "deck": "python",
+      "due": 0,
+      "learning": 0,
+      "review": 0,
+      "new": 3,
+      "cards": 3
+    },
+    {
+      "deck": "spanish",
+      "due": 0,
+      "learning": 0,
+      "review": 0,
+      "new": 5,
+      "cards": 5
+    }
+  ],
+  "total": {
+    "due": 0,
+    "learning": 0,
+    "review": 0,
+    "new": 8,
+    "cards": 8
+  }
+}
+$ flashdeck stats examples/spanish.md --days 3 --json
+{
+  "cards": 5,
+  "states": {
+    "new": 4,
+    "learning": 0,
+    "review": 1,
+    "relearning": 0
+  },
+  "mature": 0,
+  "ease_average": 2.5,
+  "lapses": 0,
+  "reviews": {
+    "total": 1,
+    "today": 1
+  },
+  "retention": {
+    "last_30_days": {
+      "passed": 0,
+      "total": 0,
+      "rate": null
+    },
+    "all_time": {
+      "passed": 0,
+      "total": 0,
+      "rate": null
+    }
+  },
+  "forecast": [
+    {
+      "date": "2026-11-11",
+      "due": 0
+    },
+    {
+      "date": "2026-11-12",
+      "due": 1
+    },
+    {
+      "date": "2026-11-13",
+      "due": 0
+    }
+  ]
+}
+```
+
+`rate` is a fraction (0 to 1) and `null` while there is nothing to measure.
+
 ### Adding cards
 
 ```text
