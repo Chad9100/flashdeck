@@ -211,6 +211,22 @@ Retention is the share of reviews of graduated cards that were not answered
 Mature cards have an interval of 21 days or more. `today` in the forecast
 includes overdue cards. `--days N` changes the forecast length.
 
+`--by-deck` and `--by-tag` print one row per deck or tag instead (a card with
+several tags counts under each; untagged cards go in `(untagged)`). Captured
+after answering one card; add `--json` for the same data as JSON:
+
+```text
+$ flashdeck stats examples --by-deck
+deck     cards   new  learn  review  mature   ease  retention
+python       3     3      0       0       0    n/a        n/a
+spanish      5     4      0       1       0   2.50        n/a
+$ flashdeck stats examples --by-tag
+tag       cards   new  learn  review  mature   ease  retention
+greeting      1     1      0       0       0    n/a        n/a
+python        3     3      0       0       0    n/a        n/a
+spanish       5     4      0       1       0   2.50        n/a
+```
+
 ### JSON output
 
 `due --json` and `stats --json` print the same numbers as one JSON document,

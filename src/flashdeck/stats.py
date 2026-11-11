@@ -178,3 +178,46 @@ def format_stats(s: Stats) -> str:
         bar = "#" * (round(20 * n / peak) if n else 0)
         lines.append(f"  {label:<9} {n:>4}  {bar}".rstrip())
     return "\n".join(lines)
+
+
+UNTAGGED = "(untagged)"
+
+
+def group_cards(cards: list[Card], by: str) -> dict[str, list[Card]]:
+    """Group cards by ``"deck"`` or ``"tag"``. A card with several tags is in each group."""
+    groups: dict[str, list[Card]] = {}
+    for card in cards:
+        keys = [card.deck] if by == "deck" else (card.tags or [UNTAGGED])
+        for key in keys:
+            groups.setdefault(key, []).append(card)
+    if by == "tag":
+        return dict(sorted(groups.items(), key=lambda kv: (kv[0] == UNTAGGED, kv[0])))
+    return groups
+
+
+def compute_grouped(cards: list[Card], store: Store, today: date, by: str) -> dict[str, Stats]:
+    return {k: compute_stats(g, store, today, days=1) for k, g in group_cards(cards, by).items()}
+
+
+def format_grouped(groups: dict[str, Stats], by: str) -> str:
+    label = "deck" if by == "deck" else "tag"
+    width = max([len(label)] + [len(k) for k in groups])
+    head = (f"{label:<{width}}  {'cards':>5}  {'new':>4}  {'learn':>5}  {'review':>6}  "
+            f"{'mature':>6}  {'ease':>5}  {'retention':>9}")
+    lines = [head]
+    for key, s in groups.items():
+        b = s.by_state
+        ease = f"{s.avg_ease:.2f}" if s.avg_ease is not None else "n/a"
+        passed, total = s.retention_all
+        ret = f"{100 * passed / total:.0f}%" if total else "n/a"
+        lines.append(
+            f"{key:<{width}}  {s.total:>5}  {b[NEW]:>4}  {b[LEARNING] + b[RELEARNING]:>5}  "
+            f"{b[REVIEW]:>6}  {s.mature:>6}  {ease:>5}  {ret:>9}"
+        )
+    return "\n".join(lines)
+
+
+def grouped_to_dict(groups: dict[str, Stats], by: str) -> dict:
+    """The ``stats --by-deck/--by-tag --json`` document."""
+    return {"by": by, "groups": [{"name": k, **{x: v for x, v in stats_to_dict(s).items()
+                                               if x != "forecast"}} for k, s in groups.items()]}

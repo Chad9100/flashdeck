@@ -15,7 +15,8 @@ from .deck import Card, DeckError, card_id, filter_tags, load_decks, parse_deck
 from .editor import EditorError, open_in_editor
 from .session import EditResult, LineReader, build_queue, match_edited, run_session, summary
 from .stats import (
-    compute_stats, due_counts, due_to_dict, format_due, format_stats, stats_to_dict,
+    compute_grouped, compute_stats, due_counts, due_to_dict, format_due, format_grouped,
+    format_stats, grouped_to_dict, stats_to_dict,
 )
 from .store import Store, StoreError, default_state_path
 from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, import_rows, read_csv_rows
@@ -67,8 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("decks", nargs="+", metavar="DECK")
     s.add_argument("--days", type=_positive, default=7, metavar="N", help="forecast length (default 7)")
     s.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    grp = s.add_mutually_exclusive_group()
+    grp.add_argument("--by-deck", action="store_true", help="one row per deck instead of the summary")
+    grp.add_argument("--by-tag", action="store_true",
+                     help="one row per tag (a card counts under each of its tags)")
 
-    o = sub.add_parser("orphans", parents=[common],
+    o =sub.add_parser("orphans", parents=[common],
                        help="list (or --prune) state entries whose card is in no given deck")
     o.add_argument("decks", nargs="+", metavar="DECK", help="every deck you still use")
     o.add_argument("--prune", action="store_true",
@@ -187,6 +192,14 @@ def cmd_due(args, out, err, clock) -> int:
 def cmd_stats(args, out, err, clock) -> int:
     cards = _load(args, err)
     store = Store(_state_path(args))
+    by = "deck" if args.by_deck else "tag" if args.by_tag else None
+    if by:
+        groups = compute_grouped(cards, store, clock().date(), by)
+        if args.json:
+            out.write(json.dumps(grouped_to_dict(groups, by), ensure_ascii=False, indent=2) + "\n")
+        else:
+            out.write(format_grouped(groups, by) + "\n")
+        return 0
     st = compute_stats(cards, store, clock().date(), days=args.days)
     if args.json:
         out.write(json.dumps(stats_to_dict(st), ensure_ascii=False, indent=2) + "\n")
