@@ -107,3 +107,24 @@ def test_card_state_round_trip_and_validation():
     with pytest.raises(ValueError):
         CardState.from_dict({"state": "review", "due": "tomorrow"})
     assert CardState.from_dict({"ease": 0.5}).ease == MIN_EASE
+
+
+def test_late_good_review_gets_half_the_overdue_days():
+    st = review_card(interval=10)  # due TODAY
+    on_time = schedule(st, "good", TODAY)
+    late = schedule(st, "good", date(2026, 11, 20))  # 10 days late
+    assert on_time.interval == 25
+    assert late.interval == round((10 + 5) * 2.5)
+
+
+def test_late_credit_hard_and_easy_and_again():
+    st = review_card(interval=10)
+    day = date(2026, 11, 18)  # 8 days late
+    assert schedule(st, "hard", day).interval == round((10 + 2) * 1.2)
+    assert schedule(st, "easy", day).interval == round((10 + 8) * 2.5 * 1.3)
+    assert schedule(st, "again", day).interval == 0
+
+
+def test_early_answer_gets_no_penalty_or_credit():
+    st = review_card(interval=10)
+    assert schedule(st, "good", date(2026, 11, 5)).interval == 25

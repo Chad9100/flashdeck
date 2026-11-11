@@ -37,7 +37,7 @@ Estimates are rough working hours for one person.
 
 - [ ] Configurable learning steps in minutes (e.g. `1m 10m`) instead of "later in this session"
 - [ ] Interval fuzz (+/- 5%) so cards added together do not stay bunched together
-- [ ] Credit for late reviews: a card answered correctly well past its due date gets a longer interval
+- [x] Credit for late reviews: a card answered correctly well past its due date gets a longer interval
 - [ ] Optional FSRS scheduler behind `--scheduler fsrs`, with SM-2 remaining the default
 
 ## v0.6: richer statistics (about 3 h)

@@ -37,6 +37,16 @@ HARD_FACTOR = 1.2
 EASY_BONUS = 1.3
 MAX_INTERVAL = 36500
 MATURE_DAYS = 21
+# Share of the days a review card was overdue that counts towards its interval.
+LATE_CREDIT = {"hard": 0.25, "good": 0.5, "easy": 1.0}
+
+
+def late_days(st: "CardState", today: date) -> int:
+    """Whole days a review card was overdue when answered (0 if on time or early)."""
+    d = st.due_date
+    if st.state != REVIEW or d is None:
+        return 0
+    return max(0, (today - d).days)
 
 
 @dataclass
@@ -127,16 +137,17 @@ def schedule(st: CardState, grade: str, today: date, now_iso: Optional[str] = No
     else:
         reps = st.reps + 1
         prev = max(1, st.interval)
+        late = late_days(st, today)
         if reps <= 1:
             interval = 1
         elif reps == 2:
             interval = {"hard": 4, "good": 6, "easy": 8}[grade]
         elif grade == "hard":
-            interval = round(prev * HARD_FACTOR)
+            interval = round((prev + late * LATE_CREDIT["hard"]) * HARD_FACTOR)
         elif grade == "good":
-            interval = round(prev * st.ease)
+            interval = round((prev + late * LATE_CREDIT["good"]) * st.ease)
         else:
-            interval = round(prev * st.ease * EASY_BONUS)
+            interval = round((prev + late * LATE_CREDIT["easy"]) * st.ease * EASY_BONUS)
         interval = max(interval, prev + 1)
     interval = min(interval, MAX_INTERVAL)
     return replace(

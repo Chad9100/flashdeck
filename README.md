@@ -492,6 +492,20 @@ updated with the SM-2 formula `EF += 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)`
 | Later reviews | hard x1.2, good x EF, easy x EF x 1.3 (always at least +1 day) |
 | Again | back into the session today; lapse counted for graduated cards |
 
+A card answered late gets credit for the extra days it survived: for the
+multiplicative reviews the interval is computed from `interval + credit x days
+overdue`, with credit 0.25 for hard, 0.5 for good and 1.0 for easy. Early or
+on-time answers are unchanged.
+
+Output of `schedule()` for a review card with a 10-day interval, 3 reps and
+ease 2.5, answered 5 days early, on time and 10 days late:
+
+```
+early (-5 days): {'hard': 12, 'good': 25, 'easy': 32}
+on time:         {'hard': 12, 'good': 25, 'easy': 32}
+10 days late:    {'hard': 15, 'good': 38, 'easy': 65}
+```
+
 The hard and easy multipliers are small tweaks borrowed from Anki; plain SM-2
 has no separate hard/easy intervals. Grades given while a card is being
 relearned do not change its ease again.
