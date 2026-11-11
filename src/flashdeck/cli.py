@@ -20,7 +20,7 @@ from .stats import (
     format_heatmap, format_stats, grouped_to_dict, heatmap_to_dict, review_days, stats_to_dict,
 )
 from .store import Store, StoreError, default_state_path
-from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, import_rows, read_csv_rows
+from .writer import append_cards, clean_tags, existing_ids, format_card, format_cloze, html_to_text, import_rows, read_csv_rows, split_anki_header
 
 
 def _positive(text: str) -> int:
@@ -103,8 +103,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("-r", "--reverse", action="store_true",
                    help="also quiz answer -> question (writes 'question ::: answer')")
 
-    i = sub.add_parser("import", help="append cards from a CSV file to a deck")
-    i.add_argument("csv", metavar="CSV", help="CSV/TSV file, or - for standard input")
+    i = sub.add_parser("import", help="append cards from a CSV or Anki text file to a deck")
+    i.add_argument("csv", metavar="CSV", help="CSV/TSV or Anki plain-text export, or - for standard input")
     i.add_argument("deck", metavar="DECK", help="deck file (created if missing)")
     i.add_argument("--delimiter", metavar="CHAR", help="field separator (default: detect)")
     hdr = i.add_mutually_exclusive_group()
@@ -334,12 +334,24 @@ def cmd_import(args, out, err, stdin: TextIO) -> int:
         delimiter = "\t"
     if delimiter is None and args.csv.lower().endswith(".tsv"):
         delimiter = "\t"
+    text, anki = split_anki_header(text)
+    header, tags_col = args.header, args.tags
+    if anki is not None:
+        # Anki exports have no column header row; honour its #separator/#tags column.
+        if delimiter is None:
+            delimiter = anki.delimiter
+        if tags_col is None:
+            tags_col = anki.tags_col
+        if header is None:
+            header = False
     try:
         clean_tags(args.tag)
         rows = read_csv_rows(text, delimiter)
+        if anki is not None and anki.html:
+            rows = [[html_to_text(cell) for cell in row] for row in rows]
         res = import_rows(
-            rows, Path(args.deck), header=args.header,
-            front_col=args.front, back_col=args.back, tags_col=args.tags, extra_tags=args.tag,
+            rows, Path(args.deck), header=header,
+            front_col=args.front, back_col=args.back, tags_col=tags_col, extra_tags=args.tag,
         )
     except ValueError as exc:
         err.write(f"flashdeck: {exc}\n")

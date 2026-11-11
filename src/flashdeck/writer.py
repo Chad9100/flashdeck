@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import html
 import io
 import re
 from dataclasses import dataclass
@@ -174,6 +175,55 @@ def _pick(header: list[str], wanted: str | None, names: set[str], default: int |
         if h in names:
             return i
     return default
+
+
+_ANKI_SEPARATORS = {"tab": "\t", "comma": ",", "semicolon": ";", "pipe": "|", "space": " "}
+_HTML_BREAK = re.compile(r"(?i)<br\s*/?>|</(?:div|p|li)>")
+_HTML_TAG = re.compile(r"<[^>]*>")
+
+
+@dataclass
+class AnkiHeader:
+    """Settings read from the ``#key:value`` lines of an Anki text export."""
+
+    delimiter: str | None = None
+    html: bool = False
+    tags_col: str | None = None
+
+
+def split_anki_header(text: str) -> tuple[str, AnkiHeader | None]:
+    """Strip Anki's leading ``#key:value`` lines; None if there are none.
+
+    Understands ``#separator`` (tab, comma, semicolon, pipe, space or the
+    literal character), ``#html`` and ``#tags column``. Other keys such as
+    ``#guid column`` are dropped.
+    """
+    if text.startswith("﻿"):
+        text = text[1:]
+    lines = text.splitlines(keepends=True)
+    info = AnkiHeader()
+    n = 0
+    while n < len(lines) and re.match(r"#[A-Za-z][\w ]*:", lines[n]):
+        key, _, value = lines[n].rstrip("\r\n").partition(":")
+        key, value = key[1:].strip().lower(), value.strip()
+        if key == "separator":
+            info.delimiter = _ANKI_SEPARATORS.get(value.lower(), value[:1] or None)
+        elif key == "html":
+            info.html = value.lower() == "true"
+        elif key == "tags column" and value.isdigit() and int(value) > 0:
+            info.tags_col = value
+        n += 1
+    if n == 0:
+        return text, None
+    return "".join(lines[n:]), info
+
+
+def html_to_text(cell: str) -> str:
+    """Turn Anki's HTML fields into plain text (line breaks kept)."""
+    cell = _HTML_BREAK.sub("\n", cell)
+    cell = _HTML_TAG.sub("", cell)
+    cell = html.unescape(cell.replace("&nbsp;", " "))
+    return "\n".join(line.rstrip() for line in cell.strip("\n").split("\n"))
 
 
 def read_csv_rows(text: str, delimiter: str | None = None) -> list[list[str]]:

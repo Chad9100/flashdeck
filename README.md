@@ -385,6 +385,34 @@ answer. `-t TAG` tags every imported card. `-` reads the CSV from standard
 input. Questions already in the deck and rows missing a side are skipped and
 counted.
 
+### Importing an Anki text export
+
+`import` also reads Anki's "Notes in Plain Text" export. When the file starts
+with `#key:value` header lines, `#separator` (tab, comma, semicolon, pipe,
+space or a literal character) and `#tags column` are honoured, the first row
+is treated as a card (Anki writes no column header), and with `#html:true`
+the fields are converted to plain text (`<br>` and block ends become line
+breaks, other tags are dropped, entities decoded). Other header lines such as
+`#guid column` are ignored; if your question and answer are not in columns 1
+and 2, pick them with `--front` and `--back`.
+
+```text
+$ cat anki.txt
+#separator:tab
+#html:true
+#tags column:3
+perro	dog	animals
+Good <b>morning</b><br>friend	Buenos d&iacute;as	greeting
+$ flashdeck import anki.txt deck.md
+Imported 2 card(s) into deck.md.
+$ cat deck.md
+perro :: dog #animals
+
+Q: Good morning
+friend
+A: Buenos días #greeting
+```
+
 ### Orphaned state
 
 Review history is keyed by the hash of a card's question, so deleting or
