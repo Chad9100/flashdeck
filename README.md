@@ -565,6 +565,26 @@ elsewhere. `--state PATH` picks a different file, for example one kept next to
 a deck. The file holds each card's schedule and a log of every answer; it is
 written atomically, and a corrupt file is reported rather than overwritten.
 
+### SQLite state for large collections
+
+A `--state` path ending in `.sqlite`, `.sqlite3` or `.db` selects a SQLite
+database instead of JSON. Every command works the same, but a save writes only
+the cards that changed and appends new answers to the log, instead of
+rewriting the whole file after each answer. Each save is one transaction. The
+two formats are not converted automatically; a database starts empty.
+
+```
+$ flashdeck review spanish.md --state spanish.sqlite --limit 2
+...
+Reviewed 2 cards (2 answers: again 0, hard 0, good 1, easy 1).
+$ flashdeck stats spanish.md --state spanish.sqlite
+Cards:      5 total
+  new 3, learning 0, review 2 (mature 0), relearning 0
+Ease:       2.55 average
+Lapses:     0
+Reviews:    2 total, 2 today
+```
+
 ## Development
 
 ```sh

@@ -50,7 +50,7 @@ Estimates are rough working hours for one person.
 
 - [x] Import Anki's plain-text export (tab-separated, with `#separator`/`#html` headers)
 - [x] `flashdeck export DECK --format csv|anki` for moving cards elsewhere
-- [ ] Optional SQLite state backend for very large collections (`--state x.sqlite`)
+- [x] Optional SQLite state backend for very large collections (`--state x.sqlite`)
 
 ## Release (about 1 h)
 

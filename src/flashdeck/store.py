@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import tempfile
 from pathlib import Path
 from typing import Mapping, Optional
@@ -71,12 +72,94 @@ def default_state_path(environ: Optional[Mapping[str, str]] = None) -> Path:
     return data_dir(environ) / "state.json"
 
 
+SQLITE_SUFFIXES = (".sqlite", ".sqlite3", ".db")
+
+
+def is_sqlite_path(path) -> bool:
+    return Path(path).suffix.lower() in SQLITE_SUFFIXES
+
+
 class Store:
+    """Cards and answer log, in a JSON file or (for ``.sqlite``/``.sqlite3``/``.db``
+    paths) a SQLite database. The SQLite backend writes only what changed."""
+
     def __init__(self, path: Path):
         self.path = Path(path)
         self.cards: dict[str, CardState] = {}
         self.log: list[dict] = []
-        self._load()
+        self.sqlite = is_sqlite_path(self.path)
+        self._saved_cards: dict[str, str] = {}
+        self._saved_log: list[str] = []
+        if self.sqlite:
+            self._load_sqlite()
+        else:
+            self._load()
+
+    def _connect(self) -> sqlite3.Connection:
+        try:
+            con = sqlite3.connect(str(self.path))
+            con.execute(
+                "CREATE TABLE IF NOT EXISTS cards (id TEXT PRIMARY KEY, data TEXT NOT NULL)"
+            )
+            con.execute(
+                "CREATE TABLE IF NOT EXISTS log (seq INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL)"
+            )
+            con.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+            return con
+        except sqlite3.Error as exc:
+            raise StoreError(f"cannot open state database {self.path}: {exc}") from None
+
+    def _load_sqlite(self) -> None:
+        if not self.path.exists():
+            return
+        con = self._connect()
+        try:
+            row = con.execute("SELECT value FROM meta WHERE key='version'").fetchone()
+            if row is not None and row[0] != str(FORMAT_VERSION):
+                raise StoreError(
+                    f"state database {self.path} has format version {row[0]}; "
+                    f"this flashdeck understands version {FORMAT_VERSION}"
+                )
+            for cid, data in con.execute("SELECT id, data FROM cards"):
+                self.cards[cid] = CardState.from_dict(json.loads(data))
+                self._saved_cards[cid] = data
+            for (data,) in con.execute("SELECT data FROM log ORDER BY seq"):
+                entry = json.loads(data)
+                if isinstance(entry, dict) and "id" in entry and "grade" in entry:
+                    self.log.append(entry)
+                    self._saved_log.append(data)
+        except (sqlite3.Error, ValueError, TypeError, AttributeError) as exc:
+            raise StoreError(f"cannot read state database {self.path}: {exc}") from None
+        finally:
+            con.close()
+
+    def _save_sqlite(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        cards = {k: json.dumps(v.to_dict(), sort_keys=True) for k, v in self.cards.items()}
+        log = [json.dumps(e, sort_keys=True, ensure_ascii=False) for e in self.log]
+        con = self._connect()
+        try:
+            with con:
+                con.execute(
+                    "INSERT OR REPLACE INTO meta (key, value) VALUES ('version', ?)",
+                    (str(FORMAT_VERSION),),
+                )
+                for cid in self._saved_cards.keys() - cards.keys():
+                    con.execute("DELETE FROM cards WHERE id=?", (cid,))
+                for cid, data in cards.items():
+                    if self._saved_cards.get(cid) != data:
+                        con.execute("INSERT OR REPLACE INTO cards (id, data) VALUES (?, ?)", (cid, data))
+                n = len(self._saved_log)
+                if log[:n] != self._saved_log:
+                    con.execute("DELETE FROM log")
+                    n = 0
+                con.executemany("INSERT INTO log (data) VALUES (?)", [(d,) for d in log[n:]])
+        except sqlite3.Error as exc:
+            raise StoreError(f"cannot write state database {self.path}: {exc}") from None
+        finally:
+            con.close()
+        self._saved_cards = cards
+        self._saved_log = log
 
     def _load(self) -> None:
         if not self.path.exists():
@@ -195,6 +278,9 @@ class Store:
         return before, len(groups)
 
     def save(self) -> None:
+        if self.sqlite:
+            self._save_sqlite()
+            return
         data = {
             "version": FORMAT_VERSION,
             "cards": {k: v.to_dict() for k, v in sorted(self.cards.items())},

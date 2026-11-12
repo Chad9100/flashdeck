@@ -48,7 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument(
         "--state",
         metavar="PATH",
-        help="review state file (default: $FLASHDECK_HOME/state.json or the per-user data dir)",
+        help="review state file (default: $FLASHDECK_HOME/state.json or the per-user data dir); "
+        "a .sqlite, .sqlite3 or .db name uses a SQLite database instead of JSON",
     )
     tagged = argparse.ArgumentParser(add_help=False)
     tagged.add_argument(
