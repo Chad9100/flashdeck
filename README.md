@@ -476,6 +476,36 @@ No orphaned state entries.
 It refuses to run if the old question has no history, or if the new one
 already has some (nothing is overwritten).
 
+### Compacting the answer log
+
+Every answer adds a line to the log in the state file. `compact` folds
+entries older than a year (change it with `--older-than DAYS`) into one
+summary per card, day and previous state. Statistics, retention and the
+heatmap count the summaries correctly. Here is a log with 16 old answers
+(from a made-up demo state), before and after, with the stats unchanged:
+
+```text
+$ flashdeck stats deck.md
+  new 0, learning 0, review 2 (mature 2), relearning 0
+Ease:       2.50 average
+Lapses:     2
+Reviews:    17 total, 1 today
+Retention:  100.0% (1/1) last 30 days, 76.5% (13/17) all time
+$ flashdeck compact
+Compacted 16 log entries before 2025-11-11 into 8 daily summaries.
+$ flashdeck compact
+Nothing to compact: no log entries before 2025-11-11 would shrink.
+$ flashdeck stats deck.md
+  new 0, learning 0, review 2 (mature 2), relearning 0
+Ease:       2.50 average
+Lapses:     2
+Reviews:    17 total, 1 today
+Retention:  100.0% (1/1) last 30 days, 76.5% (13/17) all time
+```
+
+Individual grades and times of compacted answers are gone for good, so
+copy `state.json` first if you want them.
+
 ## Scheduling (SM-2)
 
 Each card has an ease factor (starts at 2.5, never below 1.3), an interval in

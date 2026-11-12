@@ -26,6 +26,23 @@ from .scheduler import NEW, CardState
 FORMAT_VERSION = 1
 
 
+SUMMARY = "summary"
+
+
+def entry_count(entry: Mapping) -> int:
+    """How many answers a log entry stands for (more than 1 for a compacted summary)."""
+    if entry.get("grade") == SUMMARY:
+        return max(int(entry.get("count", 1)), 0)
+    return 1
+
+
+def entry_passed(entry: Mapping) -> int:
+    """How many of those answers were not 'again'."""
+    if entry.get("grade") == SUMMARY:
+        return max(int(entry.get("passed", 0)), 0)
+    return 0 if entry.get("grade") == "again" else 1
+
+
 class StoreError(Exception):
     """The state file exists but cannot be used."""
 
@@ -145,6 +162,37 @@ class Store:
                 entry["id"] = new_id
                 moved += 1
         return moved
+
+    def compact(self, cutoff: str) -> tuple[int, int]:
+        """Fold log entries dated before ``cutoff`` (YYYY-MM-DD) into per-day summaries.
+
+        Entries for the same card, day and previous state become one entry
+        ``{"id", "at": "YYYY-MM-DD", "grade": "summary", "from", "count",
+        "passed", "interval"}``, which statistics count correctly. Existing
+        summaries are kept as they are. Returns ``(entries before, entries after)``
+        for the folded part of the log.
+        """
+        groups: dict[tuple, dict] = {}
+        kept: list[dict] = []
+        before = 0
+        for e in self.log:
+            at = str(e.get("at", ""))[:10]
+            if e.get("grade") == SUMMARY or len(at) != 10 or at >= cutoff:
+                kept.append(e)
+                continue
+            before += 1
+            key = (e["id"], at, e.get("from"))
+            g = groups.get(key)
+            if g is None:
+                g = groups[key] = {
+                    "id": e["id"], "at": at, "grade": SUMMARY, "from": e.get("from"),
+                    "count": 0, "passed": 0, "interval": 0,
+                }
+            g["count"] += 1
+            g["passed"] += entry_passed(e)
+            g["interval"] = e.get("interval", g["interval"])
+        self.log = sorted(groups.values(), key=lambda g: g["at"]) + kept
+        return before, len(groups)
 
     def save(self) -> None:
         data = {

@@ -6,7 +6,7 @@ import argparse
 import io
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
@@ -93,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     o.add_argument("decks", nargs="+", metavar="DECK", help="every deck you still use")
     o.add_argument("--prune", action="store_true",
                    help="remove the orphaned entries and their log history")
+
+    c = sub.add_parser("compact", parents=[common],
+                       help="fold old answer-log entries into per-day summaries")
+    c.add_argument("--older-than", type=_positive, default=365, metavar="DAYS",
+                   help="compact entries older than DAYS days (default 365)")
 
     rn = sub.add_parser("rename-question", parents=[common],
                         help="carry a card's review history over to a reworded question")
@@ -253,6 +258,18 @@ def cmd_orphans(args, out, err) -> int:
         out.write(f"Pruned {len(orphans)} card(s) and {logs - len(store.log)} log entries.\n")
     else:
         out.write(f"{len(orphans)} orphaned card(s); run again with --prune to remove them.\n")
+    return 0
+
+
+def cmd_compact(args, out, err, clock) -> int:
+    store = Store(_state_path(args))
+    cutoff = (clock().date() - timedelta(days=args.older_than)).isoformat()
+    before, after = store.compact(cutoff)
+    if before <= after:
+        out.write(f"Nothing to compact: no log entries before {cutoff} would shrink.\n")
+        return 0
+    store.save()
+    out.write(f"Compacted {before} log entries before {cutoff} into {after} daily summaries.\n")
     return 0
 
 
@@ -427,6 +444,8 @@ def main(
             return cmd_stats(args, out, err, clock)
         if args.command == "orphans":
             return cmd_orphans(args, out, err)
+        if args.command == "compact":
+            return cmd_compact(args, out, err, clock)
         if args.command == "rename-question":
             return cmd_rename_question(args, out, err)
         if args.command == "export":

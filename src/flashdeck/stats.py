@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from .deck import Card
 from .scheduler import LEARNING, MATURE_DAYS, NEW, RELEARNING, REVIEW, STATES
-from .store import Store
+from .store import Store, entry_count, entry_passed
 
 
 @dataclass
@@ -105,16 +105,17 @@ def compute_stats(cards: list[Card], store: Store, today: date, days: int = 7) -
         if e.get("id") not in ids:
             continue
         at = str(e.get("at", ""))
-        s.reviews_total += 1
+        n = entry_count(e)
+        s.reviews_total += n
         if at.startswith(today_s):
-            s.reviews_today += 1
+            s.reviews_today += n
         # Retention: how often a card that had graduated to review was recalled.
         if e.get("from") == REVIEW:
-            ok = e.get("grade") != "again"
-            tall += 1
+            ok = entry_passed(e)
+            tall += n
             pall += ok
             if at[:10] >= since:
-                t30 += 1
+                t30 += n
                 p30 += ok
     s.retention_30 = (p30, t30)
     s.retention_all = (pall, tall)
@@ -195,7 +196,7 @@ def review_days(cards: list[Card], store: Store) -> dict[date, int]:
             d = date.fromisoformat(str(e.get("at", ""))[:10])
         except ValueError:
             continue
-        days[d] = days.get(d, 0) + 1
+        days[d] = days.get(d, 0) + entry_count(e)
     return days
 
 
